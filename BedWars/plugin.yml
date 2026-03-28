@@ -1,8 +1,0 @@
-main: aeroDEV\bedwars\BedWars
-name: BedWars
-api:
-  - 5.0.0
-version: 1.0
-author: aeroDEV
-website: github.com/aeroDEV
-description: Bedwars Plugin For Pocketmine-MP
