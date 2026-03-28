@@ -1,0 +1,40 @@
+# The version
+version: 1.0
+
+# The IP that will be showed on the scoreboard and the bossbar
+ip: "play.server.net"
+
+# Players won't be able to break/place blocks or receive damage on the lobby if this is enabled
+spawn-protection: true
+
+# Provider
+# Available providers: sqlite, mysql, json
+provider: "sqlite"
+
+# MySQL
+mysql-credentials:
+  hostname: "127.0.0.1"
+  username: "root"
+  password: ""
+  database: "bedwars"
+  port: 3306
+# QuickBuy storage
+# Available types: yaml, json, mysql
+quickbuy-storage: "yaml"
+
+# QuickBuy feature configuration
+quickbuy:
+  enabled: true
+  # QuickBuy provider override (recommended)
+  # Available types: yaml, json, mysql
+  provider: "yaml"
+  default-layout:
+    - "Wool"
+    - "Stone Sword"
+    - "Permanent Chainmail Armor"
+    - "Permanent Shears"
+    - "Arrow"
+    - "Bow"
+    - "Speed II Potion (45 seconds)"
+    - "Fireball"
+    - "TNT"
