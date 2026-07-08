@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Customer Dashboard" description="Live customer dashboard backed by bookings, tickets, and payment APIs." endpoint="/customer/bookings" queryKey="customer-dashboard" currentRole="customer" allowedRoles={['customer','owner']} realtimeTopic="booking/payment/ticket events" columns={[{key:'id',label:'Booking'},{key:'status',label:'Status'},{key:'payment_status',label:'Payment'},{key:'created_at',label:'Created'}]} />; }

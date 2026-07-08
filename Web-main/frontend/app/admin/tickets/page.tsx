@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Ticket Management" description="Admin ticket management reads existing Ticket API." endpoint="/v1/tickets" queryKey="admin-tickets" currentRole="admin" allowedRoles={['admin','owner']} realtimeTopic="ticket events" columns={[{key:'id',label:'Ticket'},{key:'status',label:'Status'},{key:'booking_id',label:'Booking'},{key:'created_at',label:'Created'}]} />; }

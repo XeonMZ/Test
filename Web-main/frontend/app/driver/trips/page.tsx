@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Driver Trips" description="Assigned trips from existing Driver API." endpoint="/v1/driver/trips" queryKey="driver-trips" currentRole="driver" allowedRoles={['driver','owner']} realtimeTopic="trip events" columns={[{key:'id',label:'Trip'},{key:'status',label:'Status'},{key:'schedule_id',label:'Schedule'}]} />; }

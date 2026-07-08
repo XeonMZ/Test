@@ -1,0 +1,2 @@
+import { QrViewer } from '../../../components/ticket/qr-viewer';
+export default function TicketQrPage() { return <main className="flex min-h-screen items-center justify-center bg-secondary px-4"><section className="rounded-[2rem] bg-white p-10 text-center shadow-soft"><h1 className="font-display text-3xl font-bold text-slate-950">Ticket QR</h1><div className="mt-6 flex justify-center"><QrViewer /></div></section></main>; }
