@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Admin Notifications" description="Readonly TODO integration shell because no existing backend list endpoint is available for this admin screen." queryKey="admin-notifications" currentRole="admin" allowedRoles={['admin','owner']} todoEndpoint="TODO readonly: GET /admin/notifications is unavailable." />; }

@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Production Readiness" description="Owner-only health checks from existing production readiness API." endpoint="/owner/production-readiness/health" queryKey="owner-production-readiness" currentRole="owner" allowedRoles={['owner']} columns={[{key:'status',label:'Status'},{key:'checks.database',label:'Database'},{key:'checks.cache',label:'Cache'}]} />; }
