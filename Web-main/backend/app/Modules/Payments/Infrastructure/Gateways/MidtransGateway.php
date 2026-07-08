@@ -17,9 +17,9 @@ final class MidtransGateway implements PaymentGateway
     public static function fromEnvironment(): self
     {
         return new self(
-            (string) getenv('MIDTRANS_SERVER_KEY'),
-            (string) getenv('MIDTRANS_CLIENT_KEY'),
-            filter_var(getenv('MIDTRANS_SANDBOX') ?: true, FILTER_VALIDATE_BOOL),
+            (string) config('payment.midtrans.server_key', ''),
+            (string) config('payment.midtrans.client_key', ''),
+            (bool) config('payment.midtrans.sandbox', true),
         );
     }
 

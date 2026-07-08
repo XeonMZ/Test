@@ -11,7 +11,11 @@ final class RealtimeService
 
     public function canBroadcast(): bool
     {
-        return $this->features->enabled(FeatureFlagDefinition::Realtime);
+        return config('broadcasting.default') === 'reverb'
+            && filled(config('broadcasting.connections.reverb.key'))
+            && filled(config('broadcasting.connections.reverb.secret'))
+            && filled(config('broadcasting.connections.reverb.app_id'))
+            && $this->features->enabled(FeatureFlagDefinition::Realtime);
     }
 
     public function canBroadcastGps(): bool
