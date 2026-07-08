@@ -1,7 +1,7 @@
 {
-  "name": "SJT Travel Management System",
-  "short_name": "STMS",
-  "description": "Premium travel booking and operations platform.",
+  "name": "SJT Travel & Tour",
+  "short_name": "SJT",
+  "description": "Travel terbaik untuk anda.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F8FAFC",
