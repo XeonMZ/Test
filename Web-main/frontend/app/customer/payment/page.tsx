@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Payments" description="Payment states remain sourced from existing payment endpoints; list endpoint is pending." queryKey="customer-payments" currentRole="customer" allowedRoles={['customer','owner']} todoEndpoint="TODO readonly: GET /v1/payments list is not available; detail remains GET /v1/payments/{payment}." columns={[{key:'id',label:'Payment'},{key:'status',label:'Status'},{key:'amount',label:'Amount'}]} />; }
