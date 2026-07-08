@@ -1,7 +1,9 @@
 <?php
 
+$betaMode = (bool) env('STMS_BETA_MODE', true) && env('APP_ENV') !== 'production';
+
 return [
-    'default' => env('CACHE_STORE', 'file'),
+    'default' => $betaMode ? 'file' : env('CACHE_STORE', 'file'),
     'stores' => [
         'array' => ['driver' => 'array'],
         'file' => ['driver' => 'file', 'path' => storage_path('framework/cache/data')],

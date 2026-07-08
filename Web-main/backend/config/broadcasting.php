@@ -1,7 +1,9 @@
 <?php
 
+$betaMode = (bool) env('STMS_BETA_MODE', true) && env('APP_ENV') !== 'production';
+
 return [
-    'default' => env('BROADCAST_CONNECTION', 'log'),
+    'default' => $betaMode ? 'log' : env('BROADCAST_CONNECTION', 'log'),
     'connections' => [
         'reverb' => [
             'driver' => 'reverb',

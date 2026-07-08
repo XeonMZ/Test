@@ -1,7 +1,9 @@
 <?php
 
+$betaMode = (bool) env('STMS_BETA_MODE', true) && env('APP_ENV') !== 'production';
+
 return [
-    'driver' => env('SESSION_DRIVER', 'file'),
+    'driver' => $betaMode ? 'file' : env('SESSION_DRIVER', 'file'),
     'lifetime' => (int) env('SESSION_LIFETIME', 120),
     'encrypt' => false,
     'files' => storage_path('framework/sessions'),

@@ -1,7 +1,9 @@
 <?php
 
+$betaMode = (bool) env('STMS_BETA_MODE', true) && env('APP_ENV') !== 'production';
+
 return [
-    'default' => env('QUEUE_CONNECTION', 'sync'),
+    'default' => $betaMode ? 'sync' : env('QUEUE_CONNECTION', 'sync'),
     'connections' => [
         'sync' => ['driver' => 'sync'],
         'database' => ['driver' => 'database', 'table' => 'jobs', 'queue' => 'default', 'retry_after' => 90],
