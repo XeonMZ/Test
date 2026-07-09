@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Driver Performance" description="Owner-only readonly view of driver performance across the fleet; uses existing APIs where available, no endpoint is created when absent." queryKey="owner-drivers" currentRole="owner" allowedRoles={['owner']} todoEndpoint="TODO readonly: GET /owner/drivers performance endpoint is unavailable." />; }
