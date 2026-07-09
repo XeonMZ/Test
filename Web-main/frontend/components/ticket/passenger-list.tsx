@@ -1,0 +1,1 @@
+export function PassengerList() { return <div className="rounded-2xl bg-white p-6 shadow-soft"><h2 className="font-bold text-slate-950">Passenger List</h2><ul className="mt-4 space-y-2 text-sm text-slate-600"><li>Passenger status: Generated → Sent → Checked In → Boarded → Completed</li></ul></div>; }
