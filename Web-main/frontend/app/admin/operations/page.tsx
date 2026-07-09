@@ -1,2 +1,0 @@
-import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
-export default function Page() { return <IntegratedResourcePage title="Admin Operations" description="Readonly TODO integration shell because no existing backend list endpoint is available for this admin screen." queryKey="admin-operations" currentRole="admin" allowedRoles={['admin','owner']} todoEndpoint="TODO readonly: GET /admin/operations is unavailable." />; }
