@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="My Bookings" description="Customer booking list from the existing Booking API." endpoint="/customer/bookings" queryKey="customer-bookings" currentRole="customer" allowedRoles={['customer','owner']} realtimeTopic="booking events" columns={[{key:'id',label:'Booking'},{key:'status',label:'Status'},{key:'total_amount',label:'Total'},{key:'created_at',label:'Created'}]} />; }

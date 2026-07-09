@@ -1,0 +1,6 @@
+import { MapPin } from 'lucide-react';
+import { ConnectionIndicator, OfflineBanner } from '@/shared/components';
+
+export default function CustomerTrackingPage() {
+  return <main className="min-h-screen bg-secondary p-6 text-slate-950"><OfflineBanner/><section className="mx-auto max-w-6xl"><ConnectionIndicator/><h1 className="mt-6 font-display text-4xl font-bold">Live Tracking</h1><div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]"><div className="grid min-h-[420px] place-items-center rounded-[2rem] bg-white shadow-soft"><div className="text-center"><MapPin className="mx-auto text-primary" size={48}/><p className="mt-3 font-bold">Google Map Placeholder</p><p className="text-sm text-slate-500">Driver marker updates automatically when GPS and realtime are enabled.</p></div></div><aside className="rounded-[2rem] bg-white p-6 shadow-soft"><p className="text-sm text-slate-500">ETA</p><p className="font-display text-3xl font-bold">--</p><p className="mt-6 text-sm text-slate-500">Distance</p><p className="font-display text-3xl font-bold">--</p><p className="mt-6 text-sm text-slate-500">Status</p><p className="font-bold text-primary">Waiting for driver GPS</p></aside></div></section></main>;
+}
