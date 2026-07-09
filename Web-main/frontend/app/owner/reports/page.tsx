@@ -1,2 +1,0 @@
-import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
-export default function Page() { return <IntegratedResourcePage title="Owner Reports" description="Owner-only readonly integration using existing APIs where available; no endpoint is created when absent." queryKey="owner-reports" currentRole="owner" allowedRoles={['owner']} todoEndpoint="TODO readonly: GET /owner/reports summary endpoint is unavailable." />; }

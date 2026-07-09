@@ -1,2 +1,0 @@
-import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
-export default function Page() { return <IntegratedResourcePage title="Driver Earnings" description="Earnings from existing Driver API." endpoint="/v1/driver/earnings" queryKey="driver-earnings" currentRole="driver" allowedRoles={['driver','owner']} columns={[{key:'period',label:'Period'},{key:'status',label:'Status'},{key:'amount',label:'Amount'}]} />; }
