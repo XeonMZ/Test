@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Backup" description="Backup actions use existing owner production readiness endpoints; list view remains TODO readonly." queryKey="owner-backup" currentRole="owner" allowedRoles={['owner']} todoEndpoint="TODO readonly: GET /owner/production-readiness/configuration/backups is unavailable; POST backup/restore already exists." />; }
