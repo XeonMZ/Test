@@ -43,7 +43,7 @@ final class InstallerService
             $admin = User::query()->create(['name' => data_get($payload, 'admin.name'), 'email' => data_get($payload, 'admin.email'), 'password' => Hash::make((string) data_get($payload, 'admin.password')), 'role' => 'admin', 'email_verified_at' => now(), 'metadata' => ['created_by' => 'installer']]);
 
             foreach ($this->bootstrapSettings($payload) as $key => $value) {
-                SystemSetting::query()->updateOrCreate(['key' => $key], ['value' => $value, 'is_public' => in_array($key, ['company.profile', 'company.name', 'company.logo', 'app.timezone', 'app.locale', 'app.currency', 'app.date_format', 'app.time_format'], true)]);
+                SystemSetting::query()->updateOrCreate(['key' => $key], ['value' => $value ?? '', 'is_public' => in_array($key, ['company.profile', 'company.name', 'company.logo', 'app.timezone', 'app.locale', 'app.currency', 'app.date_format', 'app.time_format'], true)]);
             }
 
             foreach ($this->defaultFeatureFlags() as $key => $enabled) {
