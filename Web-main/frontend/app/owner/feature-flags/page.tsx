@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Feature Flags" description="Feature flag summary endpoint is unavailable; no backend endpoint was created." queryKey="owner-feature-flags" currentRole="owner" allowedRoles={['owner']} todoEndpoint="TODO readonly: GET /owner/feature-flags is unavailable." />; }

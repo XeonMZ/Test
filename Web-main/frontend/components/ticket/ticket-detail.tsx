@@ -1,0 +1,1 @@
+export function TicketDetail() { return <section className="rounded-2xl bg-white p-6 shadow-soft"><h2 className="font-display text-2xl font-bold text-slate-950">Ticket Detail</h2><p className="mt-2 text-slate-600">Menampilkan booking UUID, ticket UUID, trip, passenger, dan status boarding.</p></section>; }

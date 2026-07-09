@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Audit Logs" description="Owner-only readonly view of system audit trails; uses existing APIs where available, no endpoint is created when absent." queryKey="owner-logs" currentRole="owner" allowedRoles={['owner']} todoEndpoint="TODO readonly: GET /owner/logs audit trail endpoint is unavailable." />; }

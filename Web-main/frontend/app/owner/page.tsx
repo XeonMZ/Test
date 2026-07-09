@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Owner Dashboard" description="Owner dashboard uses available production readiness API and TODO readonly cards for missing summaries." endpoint="/owner/production-readiness/health" queryKey="owner-dashboard" currentRole="owner" allowedRoles={['owner']} realtimeTopic="system events" columns={[{key:'status',label:'Status'},{key:'database',label:'Database'},{key:'cache',label:'Cache'}]} />; }
