@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Booking Management" description="Admin readonly integration through existing customer booking API." endpoint="/customer/bookings" queryKey="admin-bookings" currentRole="admin" allowedRoles={['admin','owner']} realtimeTopic="booking events" columns={[{key:'id',label:'Booking'},{key:'status',label:'Status'},{key:'user_id',label:'Customer'},{key:'created_at',label:'Created'}]} />; }
