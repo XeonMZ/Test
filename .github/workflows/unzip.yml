@@ -1,0 +1,31 @@
+name: Auto Unzip
+
+on:
+  push:
+    paths:
+      - "*.zip"
+
+permissions:
+  contents: write
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip all ZIP files
+        run: |
+          shopt -s nullglob
+          for file in *.zip; do
+            echo "Extracting $file"
+            unzip -o "$file" -d .
+            rm "$file"
+          done
+
+      - name: Commit extracted files
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Auto extract uploaded ZIP"
