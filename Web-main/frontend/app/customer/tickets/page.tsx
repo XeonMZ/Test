@@ -1,2 +1,0 @@
-import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
-export default function Page() { return <IntegratedResourcePage title="My Tickets" description="Tickets, QR readiness, check-in, and boarding status from Ticket API." endpoint="/v1/tickets" queryKey="customer-tickets" currentRole="customer" allowedRoles={['customer','owner']} realtimeTopic="ticket events" columns={[{key:'id',label:'Ticket'},{key:'status',label:'Status'},{key:'booking_id',label:'Booking'},{key:'created_at',label:'Created'}]} />; }

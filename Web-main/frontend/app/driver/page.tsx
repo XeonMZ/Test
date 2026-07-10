@@ -1,2 +1,0 @@
-import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
-export default function Page() { return <IntegratedResourcePage title="Driver Dashboard" description="Driver dashboard from existing Driver API." endpoint="/v1/driver/dashboard" queryKey="driver-dashboard" currentRole="driver" allowedRoles={['driver','owner']} realtimeTopic="driver events" columns={[{key:'driver_id',label:'Driver'},{key:'shift_status',label:'Status'},{key:'active_trip_id',label:'Active Trip'}]} />; }

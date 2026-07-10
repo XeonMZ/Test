@@ -1,2 +1,0 @@
-import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
-export default function Page() { return <IntegratedResourcePage title="Profile" description="Authenticated admin profile from the existing Auth API." endpoint="/profile" queryKey="admin-profile" currentRole="admin" allowedRoles={['admin', 'owner']} columns={[{ key: 'id', label: 'User' }, { key: 'name', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role' }]} />; }
