@@ -1,15 +1,34 @@
 name: Auto Unzip
-on: [push]
+
+on:
+  push:
+    paths:
+      - '**/*.zip'
+  workflow_dispatch:
+
 jobs:
-  unzip-files:
+  unzip:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v4
-      - name: Extract ZIP file
+
+      - name: Extract ZIP
         run: |
-          unzip SJT-TOUR-TRAVEL.zip -d ./extracted-folder
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          find . -name "*.zip" | while read zipfile; do
+            folder="${zipfile%.zip}"
+            mkdir -p "$folder"
+            unzip -o "$zipfile" -d "$folder"
+            rm "$zipfile"
+          done
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
           git add .
-          git commit -m "Automated unzip extraction"
+          git diff --cached --quiet || git commit -m "Auto unzip"
           git push
