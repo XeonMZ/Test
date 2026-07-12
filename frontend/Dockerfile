@@ -1,12 +1,12 @@
 # Multi-stage build for the SJT Next.js frontend.
 # Using an explicit Dockerfile removes Railway's build/type auto-detection,
 # which is what caused the Caddy static-server fallback.
-
 FROM node:20-alpine AS build
+
 WORKDIR /app
-COPY package.json package-lock.json ./
-# HUSKY=0 skips git hooks (not present in CI); --include=dev keeps build tooling.
-RUN HUSKY=0 npm install
+COPY package.json ./
+RUN npm cache clean --force
+RUN HUSKY=0 npm install --no-package-lock
 COPY . .
 RUN npm run build
 
