@@ -1,0 +1,39 @@
+openapi: 3.1.0
+info:
+  title: STMS Payment, Ticket, and Check-in API
+  version: 0.4.0
+paths:
+  /api/v1/payments:
+    post:
+      summary: Create a payment with an idempotency key
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      responses:
+        '201': { description: Payment created }
+  /api/v1/payments/webhook:
+    post:
+      summary: Process Midtrans webhook once
+      responses:
+        '200': { description: Webhook processed }
+  /api/v1/tickets:
+    get:
+      summary: List issued tickets
+      responses:
+        '200': { description: Ticket list }
+  /api/v1/check-in:
+    post:
+      summary: Validate QR and check passenger in
+      responses:
+        '200': { description: Passenger checked in }
+components:
+  schemas:
+    ApiResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        data: { type: object }

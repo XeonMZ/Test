@@ -1,0 +1,4 @@
+<?php
+use App\Modules\Drivers\Application\StateMachines\DriverTripStateMachine;
+use PHPUnit\Framework\TestCase;
+final class DriverTripStateMachineTest extends TestCase { public function test_canonical_trip_flow(): void { $m=new DriverTripStateMachine(); $s=DriverTripStateMachine::READY; foreach([DriverTripStateMachine::ASSIGNED,DriverTripStateMachine::ACCEPTED,DriverTripStateMachine::STARTED,DriverTripStateMachine::PICKUP,DriverTripStateMachine::BOARDING,DriverTripStateMachine::ON_ROUTE,DriverTripStateMachine::DROP_OFF,DriverTripStateMachine::COMPLETED] as $next) { $s=$m->transition($s,$next); } self::assertSame(DriverTripStateMachine::COMPLETED,$s); } public function test_invalid_transition_is_rejected(): void { $this->expectException(InvalidArgumentException::class); (new DriverTripStateMachine())->transition(DriverTripStateMachine::READY,DriverTripStateMachine::COMPLETED); }}
