@@ -1,0 +1,12 @@
+# Nixpacks configuration for the SJT Laravel backend.
+# Ensures PHP + composer deps are installed at build time so that start.sh
+# can run migrations/seeds and boot the server at deploy time.
+
+[phases.setup]
+nixPkgs = ["php83", "php83Extensions.pdo_mysql", "php83Extensions.mbstring", "php83Extensions.openssl", "php83Extensions.tokenizer", "php83Extensions.ctype", "php83Extensions.bcmath", "php83Extensions.fileinfo", "php83Extensions.gd", "phpPackages.composer"]
+
+[phases.install]
+cmds = ["composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist"]
+
+[start]
+cmd = "bash start.sh"
