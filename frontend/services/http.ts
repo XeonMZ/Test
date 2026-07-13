@@ -2,7 +2,7 @@ import axios from 'axios';
 import { clearAuthSession, getStoredToken } from '@/shared/lib/auth-storage';
 
 export const http = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:8000/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL?.trim() || 'https://test-production-db9c.up.railway.app/api',
   headers: { 'Content-Type': 'application/json' },
   timeout: 15_000,
 });
