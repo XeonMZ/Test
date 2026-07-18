@@ -1,0 +1,4 @@
+<?php
+namespace App\Modules\Drivers\Application\StateMachines;
+use InvalidArgumentException;
+final class DriverShiftStateMachine { public const OFFLINE='offline'; public const AVAILABLE='available'; public const ON_DUTY='on_duty'; public const ON_TRIP='on_trip'; public const BREAK='break'; public const FINISHED='finished'; private const MAP=[self::OFFLINE=>[self::AVAILABLE],self::AVAILABLE=>[self::ON_DUTY,self::BREAK,self::FINISHED,self::OFFLINE],self::ON_DUTY=>[self::ON_TRIP,self::BREAK,self::FINISHED],self::ON_TRIP=>[self::ON_DUTY,self::FINISHED],self::BREAK=>[self::AVAILABLE,self::ON_DUTY,self::FINISHED],self::FINISHED=>[self::AVAILABLE,self::OFFLINE]]; public function transition(string $from,string $to): string { if(!in_array($to,self::MAP[$from]??[],true)) throw new InvalidArgumentException("Invalid driver shift transition {$from} -> {$to}"); return $to; }}

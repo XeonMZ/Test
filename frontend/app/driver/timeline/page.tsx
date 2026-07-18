@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Driver Timeline" description="Timeline from existing Driver API." endpoint="/v1/driver/timeline" queryKey="driver-timeline" currentRole="driver" allowedRoles={['driver','owner']} realtimeTopic="driver timeline events" columns={[{key:'time',label:'Time'},{key:'status',label:'Status'},{key:'description',label:'Description'}]} />; }
