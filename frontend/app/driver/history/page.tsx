@@ -1,2 +1,0 @@
-import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
-export default function Page() { return <IntegratedResourcePage title="Driver History" description="Completed trips from existing Driver API." endpoint="/v1/driver/history" queryKey="driver-history" currentRole="driver" allowedRoles={['driver','owner']} columns={[{key:'id',label:'Trip'},{key:'status',label:'Status'},{key:'completed_at',label:'Completed'}]} />; }
