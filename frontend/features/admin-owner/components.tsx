@@ -105,7 +105,7 @@ function LiveOpsCard() {
         <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-600"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> Realtime</span>
       </div>
       {isLoading ? (
-        <Skeleton className="mt-4 h-20" />
+        <div className="mt-4 h-20 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {items.map((item) => (
