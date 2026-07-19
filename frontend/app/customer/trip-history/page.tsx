@@ -1,0 +1,2 @@
+import { IntegratedResourcePage } from '@/shared/components/integrated-resource-page';
+export default function Page() { return <IntegratedResourcePage title="Trip History" description="Completed and historical bookings from the existing customer bookings endpoint." endpoint="/customer/bookings" queryKey="customer-history" currentRole="customer" allowedRoles={['customer','owner']} columns={[{key:'id',label:'Booking'},{key:'status',label:'Status'},{key:'created_at',label:'Created'}]} />; }
