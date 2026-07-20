@@ -176,24 +176,20 @@ export const googleMapProvider: MapProvider = {
       await new Promise<google.maps.places.AutocompletePrediction[]>(
         (resolve) => {
           service.getPlacePredictions(
-            {
-              input: query,
-            },
-            (
-              res: google.maps.places.AutocompletePrediction[] | null,
-              status: google.maps.places.PlacesServiceStatus
-            ) => {
-              if (
-                status ===
-                  google.maps.places.PlacesServiceStatus.OK &&
-                res
-              ) {
-                resolve(res);
-              } else {
-                resolve([]);
-              }
-            }
-          );
+  {
+    input: query,
+  },
+  (
+    res,
+    status
+  ) => {
+    if (status === 'OK' && res) {
+      resolve(res);
+    } else {
+      resolve([]);
+    }
+  }
+);
         }
       );
 
