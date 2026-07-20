@@ -10,13 +10,6 @@ import {
   type SearchResult,
 } from '../types';
 
-/**
- * Mode 1 — Google Maps (full production). Reuses the existing lazy loader
- * (script only when a map mounts) and the audited reconciliation strategy:
- * driver-marker-only reposition + polyline setPath (no churn, no flicker).
- * route() intentionally returns a straight segment — the production polyline
- * is the GPS breadcrumb; no billable Directions calls are introduced.
- */
 export const googleMapProvider: MapProvider = {
   id: 'google',
 
@@ -77,7 +70,10 @@ export const googleMapProvider: MapProvider = {
         markers = valid.map((p) => {
           const marker = new maps.Marker({
             map,
-            position: { lat: p.lat, lng: p.lng },
+            position: {
+              lat: p.lat,
+              lng: p.lng,
+            },
             title: p.label ?? undefined,
             icon: icon(p.kind, p.done),
             zIndex: p.kind === 'driver' ? 10 : 1,
@@ -121,24 +117,28 @@ export const googleMapProvider: MapProvider = {
 
         markers.forEach((m) => {
           const pos = m.getPosition();
-          if (pos) bounds.extend(pos);
+          if (pos) {
+            bounds.extend(pos);
+          }
         });
 
         map.fitBounds(bounds, 48);
       },
-
-      onPick(cb) {
+            onPick(cb) {
         pickCb = cb;
 
         if (cb && !clickListener) {
-          clickListener = map.addListener('click', (e) => {
-            if (e.latLng && pickCb) {
-              pickCb({
-                lat: e.latLng.lat(),
-                lng: e.latLng.lng(),
-              });
+          clickListener = map.addListener(
+            'click',
+            (e: google.maps.MapMouseEvent) => {
+              if (e.latLng && pickCb) {
+                pickCb({
+                  lat: e.latLng.lat(),
+                  lng: e.latLng.lng(),
+                });
+              }
             }
-          });
+          );
         }
 
         if (!cb && clickListener) {
@@ -149,10 +149,15 @@ export const googleMapProvider: MapProvider = {
 
       destroy() {
         markers.forEach((m) => m.setMap(null));
-        polyline?.setMap(null);
+
+        if (polyline) {
+          polyline.setMap(null);
+          polyline = null;
+        }
 
         if (clickListener) {
           maps.event.removeListener(clickListener);
+          clickListener = null;
         }
 
         el.innerHTML = '';
@@ -171,7 +176,9 @@ export const googleMapProvider: MapProvider = {
       await new Promise<google.maps.places.AutocompletePrediction[]>(
         (resolve) => {
           service.getPlacePredictions(
-            { input: query },
+            {
+              input: query,
+            },
             (
               res: google.maps.places.AutocompletePrediction[] | null,
               status: google.maps.places.PlacesServiceStatus
@@ -191,13 +198,15 @@ export const googleMapProvider: MapProvider = {
       );
 
     const geocoder = new maps.Geocoder();
+
     const results: SearchResult[] = [];
 
     for (const p of predictions.slice(0, 5)) {
       try {
-        const { results: geo } = await geocoder.geocode({
-          placeId: p.place_id,
-        });
+        const { results: geo } =
+          await geocoder.geocode({
+            placeId: p.place_id,
+          });
 
         const loc = geo?.[0]?.geometry?.location;
 
@@ -215,8 +224,7 @@ export const googleMapProvider: MapProvider = {
 
     return results;
   },
-
-  async reverseGeocode(p) {
+    async reverseGeocode(p) {
     const maps = await loadGoogleMaps();
 
     const geocoder = new maps.Geocoder();
@@ -233,6 +241,9 @@ export const googleMapProvider: MapProvider = {
   },
 
   async route(from, to) {
+    // Menghindari penggunaan Google Directions API
+    // agar tidak menambah biaya. Polyline akan
+    // menggunakan breadcrumb GPS dari backend.
     return [from, to];
   },
 };
