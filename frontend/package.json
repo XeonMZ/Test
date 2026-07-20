@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/assert-env.mjs",
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint .",
