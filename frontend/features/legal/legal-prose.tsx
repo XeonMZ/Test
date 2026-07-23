@@ -16,9 +16,21 @@ import type { JSX } from 'react';
  *   blank-line blocks → <p>
  */
 
-type Block =
-  | { kind: 'h2' | 'h3' | 'p'; text: string }
-  | { kind: 'ul' | 'ol'; items: string[] };
+type TextBlock = { kind: 'h2' | 'h3' | 'p'; text: string };
+type ListBlock = { kind: 'ul' | 'ol'; items: string[] };
+type Block = TextBlock | ListBlock;
+
+/**
+ * Narrowing helper.
+ *
+ * A chain of `block.kind === 'ul'` / `=== 'ol'` checks does NOT narrow the
+ * negative branch, because TypeScript never subtracts literals from a
+ * union-typed discriminant — `ListBlock` would survive every check and
+ * `block.text` fails to compile. A type predicate narrows both branches.
+ */
+function isListBlock(block: Block): block is ListBlock {
+  return block.kind === 'ul' || block.kind === 'ol';
+}
 
 function parse(body: string): Block[] {
   const blocks: Block[] = [];
@@ -90,6 +102,34 @@ export function LegalProse({ body }: { body: string }): JSX.Element {
       {blocks.map((block, index) => {
         const key = `${block.kind}-${index}`;
 
+        if (isListBlock(block)) {
+          if (block.kind === 'ul') {
+            return (
+              <ul key={key} className="ml-1 space-y-2.5">
+                {block.items.map((item, i) => (
+                  <li key={`${key}-${i}`} className="flex gap-3">
+                    <span aria-hidden="true" className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            );
+          }
+
+          return (
+            <ol key={key} className="ml-1 space-y-2.5">
+              {block.items.map((item, i) => (
+                <li key={`${key}-${i}`} className="flex gap-3">
+                  <span aria-hidden="true" className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
+                    {i + 1}
+                  </span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ol>
+          );
+        }
+
         if (block.kind === 'h2') {
           return (
             <h2 key={key} className="pt-4 font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl dark:text-white">
@@ -103,34 +143,6 @@ export function LegalProse({ body }: { body: string }): JSX.Element {
             <h3 key={key} className="pt-2 font-display text-xl font-medium tracking-tight text-ink dark:text-white">
               {block.text}
             </h3>
-          );
-        }
-
-        if (block.kind === 'ul') {
-          return (
-            <ul key={key} className="ml-1 space-y-2.5">
-              {block.items.map((item, i) => (
-                <li key={`${key}-${i}`} className="flex gap-3">
-                  <span aria-hidden="true" className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          );
-        }
-
-        if (block.kind === 'ol') {
-          return (
-            <ol key={key} className="ml-1 space-y-2.5">
-              {block.items.map((item, i) => (
-                <li key={`${key}-${i}`} className="flex gap-3">
-                  <span aria-hidden="true" className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-extrabold text-primary">
-                    {i + 1}
-                  </span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ol>
           );
         }
 
