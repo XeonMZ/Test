@@ -32,6 +32,13 @@ export type CmsBlock = {
   is_active: boolean;
   sort_order: number;
   metadata: Record<string, unknown>;
+  // Top-level cms_sections columns. Most block types keep their content in
+  // `metadata`, but hero_slider slides are authored through the generic CMS
+  // form, which writes these columns instead.
+  title?: string | null;
+  body?: string | null;
+  image_path?: string | null;
+  link?: string | null;
 };
 
 /** All available block types an editor can drop onto the page. */

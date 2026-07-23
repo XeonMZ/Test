@@ -11,6 +11,10 @@ type HomeRow = {
   is_active: boolean;
   sort_order: number;
   metadata?: Record<string, unknown> | null;
+  title?: string | null;
+  body?: string | null;
+  image_path?: string | null;
+  link?: string | null;
 };
 
 /**
@@ -28,7 +32,7 @@ export function CmsHome({ fallback }: { fallback: React.ReactNode }) {
 
   const blocks: CmsBlock[] = (query.data ?? [])
     .filter((r) => r.is_active)
-    .map((r) => ({ id: r.id, type: r.section_type, is_active: r.is_active, sort_order: r.sort_order, metadata: r.metadata ?? {} }));
+    .map((r) => ({ id: r.id, type: r.section_type, is_active: r.is_active, sort_order: r.sort_order, metadata: r.metadata ?? {}, title: r.title, body: r.body, image_path: r.image_path, link: r.link }));
 
   // While loading, or if the CMS is empty / errored, show the fallback.
   if (query.isLoading || blocks.length === 0) {

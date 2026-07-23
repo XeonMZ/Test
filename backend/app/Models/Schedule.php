@@ -29,4 +29,18 @@ final class Schedule extends Model
     public function bookings(): HasMany { return $this->hasMany(Booking::class); }
 
     public function trip(): HasOne { return $this->hasOne(Trip::class); }
+
+    /** A schedule can be dispatched more than once (retry, driver swap). */
+    public function trips(): HasMany { return $this->hasMany(Trip::class); }
+
+    /**
+     * The most recent dispatch.
+     *
+     * Use this instead of eager-loading `trips` with a `limit(1)` closure:
+     * eager loading issues ONE query for every parent in the page, so a limit
+     * inside it truncates the whole result set — the first schedule gets a
+     * trip and every other schedule silently gets none. `latestOfMany()`
+     * builds a per-parent subquery, which is what that code meant.
+     */
+    public function latestTrip(): HasOne { return $this->hasOne(Trip::class)->latestOfMany(); }
 }

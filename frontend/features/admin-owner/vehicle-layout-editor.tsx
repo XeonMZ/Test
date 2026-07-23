@@ -3,6 +3,8 @@
 import { Armchair, ArrowUpDown, Briefcase, Copy, DoorOpen, Disc3, Download, Droplet, Eraser, Loader2, Minus, Plus, Redo2, Save, Trash2, Undo2, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { SeatMap } from '@/features/booking/seat-map';
+import type { LayoutCell, SeatLayout } from '@/features/booking/seat-cells';
 import { adminApi, type SeatCell } from '@/services/portal';
 import { extractApiError } from '@/services/stms';
 import { useToast } from '@/shared/providers/toast-provider';
@@ -168,6 +170,29 @@ export function VehicleLayoutEditorPage() {
   const cells = useMemo(() => numberSeats(grid), [grid]);
   const seatCount = cells.filter((c) => c.cell_type === 'seat').length;
 
+  // Preview payload shaped exactly like the public /catalog seats response, so
+  // the preview and the passenger's screen run through identical code.
+  const previewLayout = useMemo<SeatLayout>(() => {
+    const previewCells: LayoutCell[] = cells.map((cell, index) => ({
+      seat_id: cell.cell_type === 'seat' ? index + 1 : null,
+      seat_number: cell.cell_type === 'seat' ? cell.seat_number : null,
+      row_index: cell.row_index,
+      column_index: cell.column_index,
+      cell_type: cell.cell_type,
+      label: cell.label ?? null,
+      available: cell.cell_type === 'seat',
+    }));
+    return { has_layout: previewCells.length > 0, rows, columns: cols, cells: previewCells };
+  }, [cells, rows, cols]);
+
+  const previewSeats = useMemo(
+    () =>
+      previewLayout.cells
+        .filter((cell) => cell.seat_id != null)
+        .map((cell) => ({ id: cell.seat_id!, seat_number: cell.seat_number ?? '', class: 'regular', available: true })),
+    [previewLayout],
+  );
+
   const saveMutation = useMutation({
     mutationFn: () => adminApi.vehicleLayoutSave(vehicleId!, cells),
     onSuccess: () => { toast(`Denah tersimpan — ${seatCount} kursi.`, 'success'); queryClient.invalidateQueries({ queryKey: ['vehicle-layout', vehicleId] }); },
@@ -304,39 +329,16 @@ export function VehicleLayoutEditorPage() {
             </div>
           </AppCard>
 
-          {/* Live customer-identical preview */}
+          {/* Live customer-identical preview — literally the customer component. */}
           <AppCard>
             <SectionHeader title="Pratinjau Pelanggan" />
             <p className="mt-1 text-[11px] font-semibold text-slate-400">Persis seperti yang dilihat pelanggan saat memilih kursi.</p>
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-2 text-center text-[10px] font-extrabold uppercase tracking-buttonst text-slate-400">Depan</div>
-              <div className="mx-auto grid w-fit gap-1.5" style={{ gridTemplateColumns: `repeat(${cols}, minmax(1.6rem, 1fr))` }}>
-                {grid.map((row, r) =>
-                  row.map((type, c) => {
-                    const seat = type === 'seat';
-                    const num = seat ? cells.find((x) => x.row_index === r && x.column_index === c)?.seat_number : '';
-                    return (
-                      <div key={`p-${r}-${c}`} className={`grid aspect-square place-items-center rounded-md border text-[8px] font-semibold uppercase tracking-button ${
-                        seat ? 'border-primary/40 bg-primary/10 text-primary' :
-                        type === 'driver' ? 'border-amber-400 bg-amber-100 text-amber-700' :
-                        type === 'door' ? 'border-emerald-400 bg-emerald-100 text-emerald-700' :
-                        type === 'luggage' ? 'border-slate-400 bg-slate-200 text-slate-600' :
-                        type === 'toilet' ? 'border-sky-400 bg-sky-100 text-sky-700' :
-                        type === 'stairs' ? 'border-violet-400 bg-violet-100 text-violet-700' :
-                        type === 'aisle' ? 'border-dashed border-slate-200 bg-transparent' : 'border-transparent bg-transparent'
-                      }`} style={{ minWidth: '1.6rem' }}>
-                        {seat ? num : letterFor(type)}
-                      </div>
-                    );
-                  }),
-                )}
-              </div>
-              <div className="mt-3 flex flex-wrap justify-center gap-2 text-[9px] font-bold text-slate-500">
-                <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-primary/30" /> kursi</span>
-                <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-amber-200" /> sopir</span>
-                <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-emerald-200" /> pintu</span>
-                <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded bg-sky-200" /> toilet</span>
-              </div>
+            <div className="mt-4">
+              {previewLayout.cells.length === 0 ? (
+                <p className="text-xs font-semibold text-slate-400">Gambar minimal satu kursi untuk melihat pratinjau.</p>
+              ) : (
+                <SeatMap seats={previewSeats} layout={previewLayout} selected={[]} readOnly compact />
+              )}
             </div>
           </AppCard>
         </div>

@@ -4,11 +4,18 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Models\{ActivityLog, Booking, Customer, Driver, FeatureFlag, Membership, Notification, Passenger, Payment, Promo, Route, Schedule, SystemSetting, Ticket, User, Vehicle, VehicleLayout, VehicleSeat, Voucher};
+use App\Models\{ActivityLog, Booking, Customer, Driver, FeatureFlag, Membership, Notification, Passenger, Payment, Promo, Route, Schedule, SeatReservation, SystemSetting, Ticket, Trip, User, Vehicle, VehicleLayout, VehicleSeat, Voucher};
 use Illuminate\Support\Facades\{Artisan, Cache, DB, File, Mail, Schema, Storage};
 
 final class ProductionReadinessService
 {
+    /**
+     * The demo accounts. Kept as one constant so the counts reported by
+     * demoData() and the rows removed by deleteDemoData() can never drift
+     * apart — a mismatch there would show "0 remaining" while rows survive.
+     */
+    private const DEMO_EMAILS = ['demo.customer@stms.test', 'demo.driver@stms.test'];
+
     public const SETTINGS_PREFIXES = ['app.', 'booking.', 'company.', 'feature.', 'gps.', 'installer.', 'mail.', 'membership.', 'notification.', 'payment.', 'promo.', 'realtime.', 'ticket.'];
 
     public function health(): array
@@ -149,49 +156,146 @@ final class ProductionReadinessService
 
     public function demoData(): array
     {
+        $ids = $this->demoIds();
+
         return ['counts' => [
-            'User' => User::query()->whereIn('email', ['demo.customer@stms.test', 'demo.driver@stms.test'])->count(),
-            'Customer' => Customer::query()->whereHas('user', fn ($q) => $q->where('email', 'demo.customer@stms.test'))->count(),
-            'Driver' => Driver::query()->where('license_number', 'DEMO-SIM-001')->count(),
-            'VehicleLayout' => VehicleLayout::query()->where('name', 'Demo Executive')->count(),
-            'Vehicle' => Vehicle::query()->where('code', 'DEMO-BUS')->count(),
-            'VehicleSeat' => VehicleSeat::query()->where('seat_number', 'A1')->whereHas('vehicle', fn ($q) => $q->where('code', 'DEMO-BUS'))->count(),
-            'Route' => Route::query()->where('code', 'DEMO-ROUTE')->count(),
-            'Schedule' => Schedule::query()->whereHas('route', fn ($q) => $q->where('code', 'DEMO-ROUTE'))->count(),
-            'Booking' => Booking::query()->where('code', 'DEMO-BOOKING')->count(),
-            'Passenger' => Passenger::query()->where('identity_number', 'DEMO-ID-001')->count(),
-            'Ticket' => Ticket::query()->where('ticket_number', 'DEMO-TICKET')->count(),
-            'Payment' => Payment::query()->where('reference', 'DEMO-PAYMENT')->count(),
-            'Notification' => Notification::query()->where('metadata->demo', true)->count(),
-            'Promo' => Promo::query()->where('code', 'DEMO')->count(),
-            'Voucher' => Voucher::query()->where('code', 'DEMO1000')->count(),
-            'Membership' => Membership::query()->whereHas('customer.user', fn ($q) => $q->where('email', 'demo.customer@stms.test'))->count(),
+            'User' => count($ids['users']),
+            'Customer' => count($ids['customers']),
+            'Driver' => count($ids['drivers']),
+            'VehicleLayout' => VehicleLayout::withTrashed()->where('name', 'Demo Executive')->count(),
+            'Vehicle' => count($ids['vehicles']),
+            'VehicleSeat' => $ids['vehicles'] === [] ? 0 : VehicleSeat::withTrashed()->whereIn('vehicle_id', $ids['vehicles'])->count(),
+            'Route' => count($ids['routes']),
+            'Schedule' => count($ids['schedules']),
+            'Booking' => count($ids['bookings']),
+            'Passenger' => Passenger::withTrashed()->where('identity_number', 'DEMO-ID-001')->count(),
+            'Ticket' => Ticket::withTrashed()->where('ticket_number', 'DEMO-TICKET')->count(),
+            'Payment' => Payment::withTrashed()->where('reference', 'DEMO-PAYMENT')->count(),
+            'Notification' => $ids['users'] === [] ? 0 : Notification::withTrashed()->whereIn('user_id', $ids['users'])->count(),
+            'Promo' => Promo::withTrashed()->where('code', 'DEMO')->count(),
+            'Voucher' => Voucher::withTrashed()->where('code', 'DEMO1000')->count(),
+            'Membership' => $ids['customers'] === [] ? 0 : Membership::withTrashed()->whereIn('customer_id', $ids['customers'])->count(),
         ]];
     }
 
+    /**
+     * Physically remove the demo dataset.
+     *
+     * This used to fail with a 1451 foreign-key violation, and the reason is
+     * worth recording because it is easy to reintroduce.
+     *
+     * Almost every model here uses SoftDeletes, so `->delete()` only stamps
+     * `deleted_at` — the rows stay in the table. `User` does NOT use
+     * SoftDeletes, so the final call was a real DELETE. MySQL then cascaded
+     * into `drivers` (users→drivers is ON DELETE CASCADE) and tried to
+     * physically remove the driver row, which `schedules.driver_id` blocks
+     * with ON DELETE RESTRICT — because the schedule was only soft-deleted and
+     * was still physically present. Deleting in the right order was never the
+     * problem; deleting *softly* was.
+     *
+     * So every soft-deleting model is force-deleted here, in strict
+     * child-before-parent order, and each query is `withTrashed()` so rows
+     * left behind by an earlier failed run are still swept up rather than
+     * becoming permanently invisible orphans that block the purge forever.
+     */
     public function deleteDemoData(?User $actor = null): array
     {
         return DB::transaction(function () use ($actor): array {
+            $ids = $this->demoIds();
             $deleted = [];
-            $deleted['Membership'] = Membership::query()->whereHas('customer.user', fn ($q) => $q->where('email', 'demo.customer@stms.test'))->delete();
-            $deleted['Voucher'] = Voucher::query()->where('code', 'DEMO1000')->delete();
-            $deleted['Promo'] = Promo::query()->where('code', 'DEMO')->delete();
-            $deleted['Notification'] = Notification::query()->where('metadata->demo', true)->delete();
-            $deleted['Payment'] = Payment::query()->where('reference', 'DEMO-PAYMENT')->delete();
-            $deleted['Ticket'] = Ticket::query()->where('ticket_number', 'DEMO-TICKET')->delete();
-            $deleted['Passenger'] = Passenger::query()->where('identity_number', 'DEMO-ID-001')->delete();
-            $deleted['Booking'] = Booking::query()->where('code', 'DEMO-BOOKING')->delete();
-            $deleted['Schedule'] = Schedule::query()->whereHas('route', fn ($q) => $q->where('code', 'DEMO-ROUTE'))->delete();
-            $deleted['Route'] = Route::query()->where('code', 'DEMO-ROUTE')->delete();
-            $deleted['VehicleSeat'] = VehicleSeat::query()->where('seat_number', 'A1')->whereHas('vehicle', fn ($q) => $q->where('code', 'DEMO-BUS'))->delete();
-            $deleted['Vehicle'] = Vehicle::query()->where('code', 'DEMO-BUS')->delete();
-            $deleted['VehicleLayout'] = VehicleLayout::query()->where('name', 'Demo Executive')->delete();
-            $deleted['Driver'] = Driver::query()->where('license_number', 'DEMO-SIM-001')->delete();
-            $deleted['Customer'] = Customer::query()->whereHas('user', fn ($q) => $q->where('email', 'demo.customer@stms.test'))->delete();
-            $deleted['User'] = User::query()->whereIn('email', ['demo.customer@stms.test', 'demo.driver@stms.test'])->delete();
+
+            // --- Booking subtree -------------------------------------------
+            // Not created by the demo seeder, but a demo schedule that someone
+            // dispatched would leave a trip holding RESTRICT references.
+            $deleted['Trip'] = $ids['schedules'] === []
+                ? 0
+                : Trip::withTrashed()->whereIn('schedule_id', $ids['schedules'])->forceDelete();
+
+            $deleted['SeatReservation'] = $ids['bookings'] === []
+                ? 0
+                : SeatReservation::withTrashed()->whereIn('booking_id', $ids['bookings'])->forceDelete();
+
+            $deleted['Ticket'] = Ticket::withTrashed()->where('ticket_number', 'DEMO-TICKET')->forceDelete();
+            $deleted['Payment'] = Payment::withTrashed()->where('reference', 'DEMO-PAYMENT')->forceDelete();
+            $deleted['Passenger'] = Passenger::withTrashed()->where('identity_number', 'DEMO-ID-001')->forceDelete();
+            $deleted['Booking'] = Booking::withTrashed()->where('code', 'DEMO-BOOKING')->forceDelete();
+
+            // --- Schedule must be physically gone before driver/vehicle -----
+            $deleted['Schedule'] = $ids['schedules'] === []
+                ? 0
+                : Schedule::withTrashed()->whereIn('id', $ids['schedules'])->forceDelete();
+
+            // --- Standalone records ----------------------------------------
+            $deleted['Membership'] = $ids['customers'] === []
+                ? 0
+                : Membership::withTrashed()->whereIn('customer_id', $ids['customers'])->forceDelete();
+
+            $deleted['Notification'] = $ids['users'] === []
+                ? 0
+                : Notification::withTrashed()->whereIn('user_id', $ids['users'])->forceDelete();
+
+            $deleted['Voucher'] = Voucher::withTrashed()->where('code', 'DEMO1000')->forceDelete();
+            $deleted['Promo'] = Promo::withTrashed()->where('code', 'DEMO')->forceDelete();
+
+            // --- Fleet ------------------------------------------------------
+            $deleted['VehicleSeat'] = $ids['vehicles'] === []
+                ? 0
+                : VehicleSeat::withTrashed()->whereIn('vehicle_id', $ids['vehicles'])->forceDelete();
+
+            $deleted['Vehicle'] = $ids['vehicles'] === []
+                ? 0
+                : Vehicle::withTrashed()->whereIn('id', $ids['vehicles'])->forceDelete();
+
+            $deleted['VehicleLayout'] = VehicleLayout::withTrashed()->where('name', 'Demo Executive')->forceDelete();
+            $deleted['Route'] = Route::withTrashed()->where('code', 'DEMO-ROUTE')->forceDelete();
+
+            // --- Identities last --------------------------------------------
+            $deleted['Driver'] = Driver::withTrashed()->where('license_number', 'DEMO-SIM-001')->forceDelete();
+
+            $deleted['Customer'] = $ids['customers'] === []
+                ? 0
+                : Customer::withTrashed()->whereIn('id', $ids['customers'])->forceDelete();
+
+            // User has no SoftDeletes, so this is already a hard delete. By
+            // now every child row is physically gone, so the cascade is a no-op.
+            $deleted['User'] = $ids['users'] === []
+                ? 0
+                : User::whereIn('id', $ids['users'])->delete();
+
             $this->audit('demo.deleted', $actor, ['deleted' => $deleted]);
             return ['deleted' => $deleted];
         });
+    }
+
+    /**
+     * Resolve the demo records by primary key before anything is removed.
+     *
+     * Resolving up front matters: `whereHas('customer.user', …)` applies the
+     * related models' soft-delete scopes, so once a parent has been trashed
+     * the child can no longer be found through it. Reading the ids first —
+     * and reading them `withTrashed()` — keeps the purge idempotent.
+     *
+     * @return array{users: list<int>, customers: list<int>, drivers: list<int>, vehicles: list<int>, routes: list<int>, schedules: list<int>, bookings: list<int>}
+     */
+    private function demoIds(): array
+    {
+        $users = User::whereIn('email', self::DEMO_EMAILS)->pluck('id')->all();
+
+        $customers = $users === []
+            ? []
+            : Customer::withTrashed()->whereIn('user_id', $users)->pluck('id')->all();
+
+        $drivers = Driver::withTrashed()->where('license_number', 'DEMO-SIM-001')->pluck('id')->all();
+        $vehicles = Vehicle::withTrashed()->where('code', 'DEMO-BUS')->pluck('id')->all();
+        $routes = Route::withTrashed()->where('code', 'DEMO-ROUTE')->pluck('id')->all();
+
+        $schedules = $routes === []
+            ? []
+            : Schedule::withTrashed()->whereIn('route_id', $routes)->pluck('id')->all();
+
+        $bookings = Booking::withTrashed()->where('code', 'DEMO-BOOKING')->pluck('id')->all();
+
+        return compact('users', 'customers', 'drivers', 'vehicles', 'routes', 'schedules', 'bookings');
     }
 
     private function check(callable $callback, string $okMessage): array { try { return $this->status((bool) $callback(), $okMessage); } catch (\Throwable $e) { return ['status' => 'failed', 'message' => $e->getMessage()]; } }

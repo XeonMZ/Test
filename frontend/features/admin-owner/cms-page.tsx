@@ -11,7 +11,7 @@ import { AppCard, Badge, EmptyState, PageHeader, SectionHeader, Skeleton } from 
 
 const input = 'min-h-11 w-full rounded-md border border-steel bg-canvas px-4 text-sm text-ink outline-none transition-colors placeholder:text-graphite focus:border-primary dark:border-ink-soft dark:bg-ink dark:text-slate-100';
 const btn = 'inline-flex min-h-9 items-center gap-1 rounded-xl border px-3 text-xs font-extrabold transition disabled:opacity-60';
-const SECTION_TYPES = ['hero', 'service', 'promo', 'testimonial', 'gallery', 'faq', 'contact', 'footer', 'seo'] as const;
+const SECTION_TYPES = ['hero', 'hero_slider', 'service', 'promo', 'recommendation', 'testimonial', 'gallery', 'faq', 'contact', 'footer', 'seo'] as const;
 
 const emptyPkg = { name: '', destination: '', duration_days: '1', price: '', capacity: '10', description: '', facilities: '', badge: '', cover_path: '', status: 'active', is_featured: false, is_recommended: false, is_best_seller: false, is_promo: false };
 const emptySec = { section_type: 'hero', title: '', body: '', image_path: '', link: '', sort_order: '0', is_active: true, publish_start: '', publish_end: '' };
@@ -135,7 +135,7 @@ export function CmsPage() {
 
       {/* --------------------------- Home CMS --------------------------- */}
       <AppCard>
-        <SectionHeader title={secEdit ? `Edit section #${secEdit}` : 'Section halaman depan baru'} description="Halaman depan membaca /catalog/home: hanya section aktif & dalam jendela publish yang tampil, diurutkan sort order." />
+        <SectionHeader title={secEdit ? `Edit section #${secEdit}` : 'Section halaman depan baru'} description="Halaman depan membaca /catalog/home: hanya section aktif & dalam jendela publish yang tampil, diurutkan sort order. Tipe recommendation tampil sebagai kartu geser di dashboard customer (judul, gambar, link, dan deskripsi)." />
         <form className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" onSubmit={(e) => { e.preventDefault(); saveSec.mutate(); }}>
           <select value={secForm.section_type} onChange={(e) => setSecForm({ ...secForm, section_type: e.target.value })} className={input} aria-label="Tipe section">
             {SECTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -147,7 +147,7 @@ export function CmsPage() {
           <input type="datetime-local" value={secForm.publish_start} onChange={(e) => setSecForm({ ...secForm, publish_start: e.target.value })} className={input} aria-label="Publish mulai" />
           <input type="datetime-local" value={secForm.publish_end} onChange={(e) => setSecForm({ ...secForm, publish_end: e.target.value })} className={input} aria-label="Publish selesai" />
           <label className="flex items-center gap-2 text-xs font-extrabold text-slate-600 dark:text-slate-300"><input type="checkbox" checked={secForm.is_active} onChange={(e) => setSecForm({ ...secForm, is_active: e.target.checked })} className="h-4 w-4 rounded" /> Aktif</label>
-          <textarea value={secForm.body} onChange={(e) => setSecForm({ ...secForm, body: e.target.value })} placeholder="Isi/teks section (untuk FAQ: jawaban; SEO: meta description; kontak/footer: konten)" rows={2} className={`${input} sm:col-span-2 lg:col-span-4`} />
+          <textarea value={secForm.body} onChange={(e) => setSecForm({ ...secForm, body: e.target.value })} placeholder="Isi/teks section (untuk FAQ: jawaban; SEO: meta description; recommendation: deskripsi kartu; kontak/footer: konten)" rows={2} className={`${input} sm:col-span-2 lg:col-span-4`} />
           <div className="flex gap-2 sm:col-span-2 lg:col-span-4">
             <button type="submit" disabled={saveSec.isPending} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold uppercase tracking-button text-white hover:bg-primary-deep disabled:opacity-60">
               {saveSec.isPending ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} {secEdit ? 'Simpan' : 'Tambah section'}

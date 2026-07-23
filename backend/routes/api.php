@@ -21,8 +21,13 @@ Route::prefix('catalog')->middleware('throttle:120,1')->group(function (): void 
 
 Route::post('login', [\App\Modules\Auth\Presentation\AuthController::class, 'login'])->middleware('throttle:login');
 Route::post('register', [\App\Modules\Auth\Presentation\AuthController::class, 'register'])->middleware('throttle:register');
-Route::post('forgot-password', [\App\Modules\Auth\Presentation\AuthController::class, 'forgotPassword'])->middleware('throttle:password-reset');
-Route::post('reset-password', [\App\Modules\Auth\Presentation\AuthController::class, 'resetPassword'])->middleware('throttle:password-reset');
+// Password reset is passcode-based. 'otp-request' bounds how many codes an
+// address (and a host) can trigger; 'otp-verify' bounds redemption attempts,
+// on top of the per-code attempt ceiling enforced inside OtpService.
+Route::post('forgot-password', [\App\Modules\Auth\Presentation\AuthController::class, 'forgotPassword'])
+    ->middleware(['throttle:password-reset', 'throttle:otp-request']);
+Route::post('reset-password', [\App\Modules\Auth\Presentation\AuthController::class, 'resetPassword'])
+    ->middleware(['throttle:password-reset', 'throttle:otp-verify']);
 
 
 Route::prefix('owner/production-readiness')->middleware(['auth:sanctum', 'active', 'maintenance', 'role:owner'])->group(function (): void {
@@ -63,7 +68,17 @@ Route::middleware(['auth:sanctum', 'active', 'maintenance'])->group(function ():
     Route::post('package-bookings', [\App\Http\Controllers\PackageBookingController::class, 'store'])->middleware(['verified.email', 'cooldown.customer:package-booking']);
     Route::post('package-bookings/{uuid}/pay', [\App\Http\Controllers\PackageBookingController::class, 'pay']);
     Route::post('package-bookings/{uuid}/confirm-transfer', [\App\Http\Controllers\PackageBookingController::class, 'confirmTransfer']);
+    // DP settlement (tour packages only).
+    Route::post('package-bookings/{uuid}/settle', [\App\Http\Controllers\PackageBookingController::class, 'settle']);
+    Route::post('package-bookings/{uuid}/confirm-settlement', [\App\Http\Controllers\PackageBookingController::class, 'confirmSettlement']);
     Route::post('package-bookings/{uuid}/cancel', [\App\Http\Controllers\PackageBookingController::class, 'customerCancel']);
+
+    // Package ratings. Eligibility is re-checked server-side on store(); the
+    // eligibility endpoint only exists so the UI never shows a form that
+    // would be rejected.
+    Route::get('package-ratings/eligibility', [\App\Http\Controllers\PackageRatingController::class, 'eligibility']);
+    Route::post('package-ratings', [\App\Http\Controllers\PackageRatingController::class, 'store'])
+        ->middleware(['verified.email', 'throttle:10,1']);
 });
 
 // Payment gateway webhook stays public by design: it is verified via
@@ -87,9 +102,16 @@ Route::prefix('v1')->middleware(['auth:sanctum', 'active', 'maintenance'])->grou
 // Public catalog — dynamic home + tour packages (published content only).
 Route::prefix('catalog')->middleware('throttle:60,1')->group(function (): void {
     Route::get('home', [\App\Http\Controllers\CmsController::class, 'catalogHome']);
+    // Recommendation rail on the customer dashboard. Public so it can be
+    // cached at the edge like the rest of the catalog — it carries no
+    // per-user data, only published CMS cards.
+    Route::get('recommendations', [\App\Http\Controllers\CmsController::class, 'catalogRecommendations']);
+    Route::get('hero-slides', [\App\Http\Controllers\CmsController::class, 'catalogHeroSlides']);
     Route::get('branding', [\App\Http\Controllers\CmsController::class, 'branding']);
     Route::get('tour-packages', [\App\Http\Controllers\CmsController::class, 'catalogPackages']);
     Route::get('tour-packages/{slug}', [\App\Http\Controllers\CmsController::class, 'catalogPackageShow']);
+    // Public review list for one package (names shortened server-side).
+    Route::get('tour-packages/{slug}/ratings', [\App\Http\Controllers\PackageRatingController::class, 'index']);
     // Legal pages (published only) — consumed by the public legal routes.
     Route::get('legal', [\App\Http\Controllers\LegalController::class, 'index']);
     Route::get('legal/{slug}', [\App\Http\Controllers\LegalController::class, 'show']);
@@ -97,15 +119,18 @@ Route::prefix('catalog')->middleware('throttle:60,1')->group(function (): void {
     Route::get('site-content/{slug}', [\App\Http\Controllers\SiteContentController::class, 'show']);
 });
 
-// Email verification: the signed link is public (validated by the 'signed'
-// middleware — signature covers id+hash+expiry); resend requires auth and is
-// rate-limited (3 requests / 10 minutes on top of hourly dedupe).
+// Legacy signed verification link. Nothing issues these any more (verification
+// moved to passcodes); the route stays so links already delivered before the
+// rollout still work, and can be removed once they have all expired.
 Route::get('email/verify/{id}/{hash}', [\App\Http\Controllers\EmailVerificationController::class, 'verify'])
     ->middleware(['signed', 'throttle:12,1'])->name('verification.verify');
 
 // Notifications are per-user and available to every authenticated role.
 Route::middleware(['auth:sanctum', 'active', 'maintenance'])->group(function (): void {
-    Route::post('email/verification-notification', [\App\Http\Controllers\EmailVerificationController::class, 'resend'])->middleware('throttle:3,10');
+    Route::post('email/verification-notification', [\App\Http\Controllers\EmailVerificationController::class, 'send'])
+        ->middleware(['throttle:3,10', 'throttle:otp-request']);
+    Route::post('email/verify-otp', [\App\Http\Controllers\EmailVerificationController::class, 'confirm'])
+        ->middleware('throttle:otp-verify');
     // Map Provider resolution — every map page (all roles) reads this.
     Route::get('map/config', [\App\Http\Controllers\MapSettingsController::class, 'config']);
     Route::get('notifications', [\App\Modules\Customers\Presentation\CustomerPortalController::class, 'notifications']);
@@ -165,6 +190,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'active', 'maintenance', 'ro
     // Tour package booking management (admin & owner)
     Route::get('package-bookings', [\App\Http\Controllers\PackageBookingController::class, 'adminIndex']);
     Route::post('package-bookings/{id}/verify', [\App\Http\Controllers\PackageBookingController::class, 'verify'])->whereNumber('id');
+    Route::post('package-bookings/{id}/verify-settlement', [\App\Http\Controllers\PackageBookingController::class, 'verifySettlement'])->whereNumber('id');
     Route::post('package-bookings/{id}/reject', [\App\Http\Controllers\PackageBookingController::class, 'reject'])->whereNumber('id');
     Route::post('package-bookings/{id}/{action}', [\App\Http\Controllers\PackageBookingController::class, 'adminTransition'])->whereNumber('id')->where('action', 'complete|cancel');
     // Email template editor (admin & owner)

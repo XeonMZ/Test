@@ -130,7 +130,7 @@ final class ManagementController extends Controller
 
         $q = Schedule::query()
             ->with(['route:id,code,origin,destination', 'vehicle:id,code,brand', 'driver.user:id,name'])
-            ->with(['trips' => fn ($t) => $t->latest('id')->limit(1)])
+            ->with('latestTrip')
             ->withCount('bookings');
 
         if ($status = $request->string('status')->toString()) {

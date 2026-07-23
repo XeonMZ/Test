@@ -1,6 +1,6 @@
 'use client';
 
-import { Facebook, Instagram, MapPin, MessageCircle, Package } from 'lucide-react';
+import { Facebook, Instagram, MapPin, MessageCircle, Package, Youtube } from 'lucide-react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { LEGAL_NAV } from '@/features/legal/legal-config';
@@ -17,6 +17,14 @@ function waLink(number?: string | null, text?: string): string | null {
 }
 
 // TikTok isn't in lucide; small inline glyph.
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="M18.9 2H22l-7 8 8.2 12h-6.4l-5-7.3L5.9 22H2.8l7.5-8.6L2.4 2h6.6l4.5 6.7L18.9 2Zm-1.1 18h1.7L7.3 3.8H5.5L17.8 20Z" />
+    </svg>
+  );
+}
+
 function TiktokIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -51,11 +59,15 @@ export function SiteFooter() {
 
   const cs = waLink(data?.cs_whatsapp ?? data?.whatsapp_number, 'Halo SJT, saya butuh bantuan.');
   const jastip = waLink(data?.jastip_whatsapp ?? data?.whatsapp_number, 'Halo SJT, saya mau jasa titip / kirim paket.');
+  // Every entry is driven by Settings > Kontak & Media Sosial; a blank field
+  // simply drops its icon rather than rendering a dead link.
   const socials = [
     { href: data?.social_instagram, icon: Instagram, label: 'Instagram' },
     { href: data?.social_facebook, icon: Facebook, label: 'Facebook' },
     { href: data?.social_tiktok, icon: TiktokIcon, label: 'TikTok' },
-  ].filter((s) => Boolean(s.href));
+    { href: data?.social_youtube, icon: Youtube, label: 'YouTube' },
+    { href: data?.social_x, icon: XIcon, label: 'X' },
+  ].filter((s) => typeof s.href === 'string' && s.href.trim() !== '');
 
   return (
     <footer className="relative overflow-hidden bg-ink text-on-ink">

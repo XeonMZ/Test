@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/shared/providers/auth-provider';
 
 export default function ForgotPasswordPage() {
   const { forgotPassword } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,9 +21,11 @@ export default function ForgotPasswordPage() {
     setSubmitting(true);
     try {
       const responseMessage = await forgotPassword(email);
-      setMessage(responseMessage || 'Link reset password sudah dikirim ke email kamu.');
+      setMessage(responseMessage || 'Jika email tersebut terdaftar, kami telah mengirimkan kode verifikasi.');
+      // Carry the address forward so the next step only asks for the code.
+      window.setTimeout(() => router.push(`/reset-password?email=${encodeURIComponent(email)}`), 1800);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Gagal mengirim link reset password.');
+      setError(err instanceof Error ? err.message : 'Gagal mengirim kode reset password.');
     } finally {
       setSubmitting(false);
     }
@@ -32,7 +36,7 @@ export default function ForgotPasswordPage() {
       <section className="w-full max-w-md rounded-md bg-canvas p-8 shadow-soft dark:bg-ink sm:p-10">
         <p className="text-center text-xs font-semibold uppercase tracking-button text-primary">SJT</p>
         <h1 className="mt-4 text-center font-display text-3xl font-medium tracking-tight text-ink dark:text-white">Lupa Password</h1>
-        <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">Masukkan email kamu, kami kirim link reset password.</p>
+        <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">Masukkan email kamu, kami kirim kode verifikasi 6 digit.</p>
 
         {message ? (
           <p role="status" className="mt-6 rounded-md bg-emerald-50 px-4 py-3 text-center text-sm font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">{message}</p>

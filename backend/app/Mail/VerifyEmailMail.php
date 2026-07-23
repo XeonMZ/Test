@@ -24,7 +24,7 @@ final class VerifyEmailMail extends Mailable
     public function build(): self
     {
         return $this
-            ->subject(EmailTemplate::resolve('verify_email', ['subject' => 'Verify Your Email - SJT Travel', 'heading' => '', 'intro' => ''], ['name' => \$this->user->name])['subject'])
+            ->subject(EmailTemplate::resolve('verify_email', ['subject' => 'Verify Your Email - SJT Travel', 'heading' => '', 'intro' => ''], ['name' => $this->user->name])['subject'])
             ->view('emails.verify-email')
             ->text('emails.verify-email-text')
             ->with(['user' => $this->user, 'verificationUrl' => $this->verificationUrl, 'expireMinutes' => $this->expireMinutes]);

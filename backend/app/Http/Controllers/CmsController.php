@@ -147,7 +147,13 @@ final class CmsController extends Controller
     /** Published packages, optionally filtered by section flag. */
     public function catalogPackages(Request $request): JsonResponse
     {
-        $q = TourPackage::query()->where('status', 'active')->orderBy('sort_order')->orderByDesc('id');
+        // Aggregates come from the database, not from loading every rating:
+        // a package with thousands of reviews must not cost thousands of rows
+        // to render one card.
+        $q = TourPackage::query()
+            ->withCount('ratings')
+            ->withAvg('ratings', 'stars')
+            ->where('status', 'active')->orderBy('sort_order')->orderByDesc('id');
         match ($request->string('filter')->toString()) {
             'featured' => $q->where('is_featured', true),
             'recommended' => $q->where('is_recommended', true),
@@ -160,7 +166,99 @@ final class CmsController extends Controller
 
     public function catalogPackageShow(string $slug): JsonResponse
     {
-        return response()->json(['data' => TourPackage::where('status', 'active')->where('slug', $slug)->firstOrFail()]);
+        $package = TourPackage::query()
+            ->withCount('ratings')
+            ->withAvg('ratings', 'stars')
+            ->where('status', 'active')
+            ->where('slug', $slug)
+            ->firstOrFail();
+
+        return response()->json(['data' => $package]);
+    }
+
+    /**
+     * Cards for the swipeable recommendation rail on the customer dashboard.
+     *
+     * Kept separate from catalogHome() rather than filtered client-side: the
+     * dashboard would otherwise download every hero, FAQ and footer block just
+     * to render two cards, on the connection of someone already logged in on
+     * a phone.
+     *
+     * `link` is emitted only when it is safe to put in an href. A CMS editor
+     * is trusted to write copy, not to inject a scheme — `javascript:` or
+     * `data:` here would be stored XSS against every logged-in customer, so
+     * anything that is not http(s) or a site-relative path is dropped.
+     */
+    public function catalogRecommendations(): JsonResponse
+    {
+        $sections = CmsSection::query()
+            ->published()
+            ->where('section_type', CmsSection::TYPE_RECOMMENDATION)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->limit(20)
+            ->get(['id', 'title', 'body', 'image_path', 'link', 'sort_order', 'metadata'])
+            ->map(function (CmsSection $section): array {
+                return [
+                    'id' => $section->id,
+                    'title' => $section->title,
+                    'body' => $section->body,
+                    'image_path' => $section->image_path,
+                    'link' => $this->safeLink($section->link),
+                    'badge' => is_array($section->metadata) ? ($section->metadata['badge'] ?? null) : null,
+                ];
+            })
+            ->values();
+
+        return response()->json(['data' => $sections]);
+    }
+
+    /**
+     * GET /catalog/hero-slides
+     *
+     * The hero carousel as standalone data, for pages that are not driven by
+     * the CMS block renderer (the customer package page). The home page gets
+     * the same rows through /catalog/home and groups them client-side.
+     */
+    public function catalogHeroSlides(): JsonResponse
+    {
+        $slides = CmsSection::query()
+            ->published()
+            ->where('section_type', CmsSection::TYPE_HERO_SLIDER)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->limit(12)
+            ->get(['id', 'title', 'body', 'image_path', 'link', 'metadata'])
+            ->map(fn (CmsSection $s): array => [
+                'id' => $s->id,
+                'title' => $s->title,
+                'body' => $s->body,
+                'image_path' => $s->image_path,
+                'link' => $this->safeLink($s->link),
+                'cta_label' => is_array($s->metadata) ? ($s->metadata['cta_label'] ?? null) : null,
+            ])
+            ->values();
+
+        return response()->json(['data' => $slides]);
+    }
+
+    /** Allow site-relative paths and absolute http(s) only; drop everything else. */
+    private function safeLink(?string $link): ?string
+    {
+        $link = trim((string) $link);
+        if ($link === '') {
+            return null;
+        }
+
+        // Site-relative: must start with a single slash, never '//host'
+        // (protocol-relative, which escapes to another origin).
+        if (str_starts_with($link, '/') && ! str_starts_with($link, '//')) {
+            return $link;
+        }
+
+        $scheme = parse_url($link, PHP_URL_SCHEME);
+
+        return in_array(strtolower((string) $scheme), ['http', 'https'], true) ? $link : null;
     }
 
     /** The whole dynamic home page: published sections grouped by type. */
@@ -168,7 +266,12 @@ final class CmsController extends Controller
     {
         // Flat, ordered list of published blocks — the public renderer lays
         // them out in exactly the order set in the Page Builder.
-        $sections = CmsSection::query()->published()->orderBy('sort_order')->orderBy('id')
+        $sections = CmsSection::query()->published()
+            // Recommendation cards belong to the customer dashboard rail, not
+            // the public home page. The renderer already ignores unknown
+            // types, but there is no reason to ship them to every visitor.
+            ->where('section_type', '!=', CmsSection::TYPE_RECOMMENDATION)
+            ->orderBy('sort_order')->orderBy('id')
             ->get(['id', 'section_type', 'title', 'body', 'image_path', 'link', 'sort_order', 'is_active', 'metadata']);
         return response()->json(['data' => $sections]);
     }

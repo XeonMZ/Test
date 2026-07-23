@@ -122,17 +122,54 @@ final class CatalogService
             ->pluck('vehicle_seat_id')
             ->all();
 
-        $seats = VehicleSeat::query()
+        // Every cell of the drawn layout — seats AND furniture (driver, door,
+        // aisle, toilet …). The customer seat map needs the whole grid to
+        // reproduce the layout the operator drew, not just the bookable seats.
+        $cells = VehicleSeat::query()
             ->where('vehicle_id', $schedule->vehicle_id)
-            ->where('is_active', true)
+            ->orderBy('row_index')
+            ->orderBy('column_index')
             ->orderBy('id')
-            ->get(['id', 'seat_number', 'class'])
+            ->get(['id', 'seat_number', 'class', 'is_active', 'row_index', 'column_index', 'cell_type', 'label']);
+
+        // Rows created before the layout builder existed all default to (0,0).
+        // Coordinates are only trustworthy when every cell occupies its own
+        // square; otherwise the client falls back to an auto-generated grid.
+        $coordinates = $cells->map(fn (VehicleSeat $cell): string => ((int) $cell->row_index).':'.((int) $cell->column_index));
+        $hasLayout = $cells->count() > 1 && $coordinates->unique()->count() === $cells->count();
+
+        $isSeat = fn (VehicleSeat $cell): bool => ($cell->cell_type ?? 'seat') === 'seat' && (bool) $cell->is_active;
+
+        $seats = $cells
+            ->filter($isSeat)
+            ->values()
             ->map(fn (VehicleSeat $seat): array => [
                 'id' => $seat->id,
                 'seat_number' => $seat->seat_number,
                 'class' => $seat->class,
                 'available' => ! in_array($seat->id, $blockedSeatIds, true),
+                'row_index' => (int) $seat->row_index,
+                'column_index' => (int) $seat->column_index,
+                'cell_type' => $seat->cell_type ?? 'seat',
             ]);
+
+        $layout = [
+            'has_layout' => $hasLayout,
+            'rows' => $hasLayout ? ((int) $cells->max('row_index') + 1) : 0,
+            'columns' => $hasLayout ? ((int) $cells->max('column_index') + 1) : 0,
+            'cells' => $hasLayout
+                ? $cells->map(fn (VehicleSeat $cell): array => [
+                    // Only real seats carry a bookable id; furniture is display-only.
+                    'seat_id' => $isSeat($cell) ? $cell->id : null,
+                    'seat_number' => $isSeat($cell) ? $cell->seat_number : null,
+                    'row_index' => (int) $cell->row_index,
+                    'column_index' => (int) $cell->column_index,
+                    'cell_type' => $cell->cell_type ?? 'seat',
+                    'label' => $cell->label,
+                    'available' => $isSeat($cell) ? ! in_array($cell->id, $blockedSeatIds, true) : false,
+                ])->values()
+                : [],
+        ];
 
         return [
             'schedule' => [
@@ -145,6 +182,7 @@ final class CatalogService
                 'vehicle' => $schedule->vehicle ? ['code' => $schedule->vehicle->code, 'brand' => $schedule->vehicle->brand, 'layout' => $schedule->vehicle->layout?->name] : null,
             ],
             'seats' => $seats,
+            'layout' => $layout,
             'seats_available' => $seats->where('available', true)->count(),
             'capacity' => $seats->count(),
         ];

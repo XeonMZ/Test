@@ -304,7 +304,12 @@ export function BookingWizard() {
               ) : seatsQuery.isError ? (
                 <EmptyState title="Gagal memuat denah kursi" description={extractApiError(seatsQuery.error, 'Silakan coba lagi.')} />
               ) : (
-                <SeatMap seats={seatsQuery.data?.seats ?? []} selected={selectedSeats.map((s) => s.id)} onToggle={toggleSeat} />
+                <SeatMap
+                  seats={seatsQuery.data?.seats ?? []}
+                  layout={seatsQuery.data?.layout ?? null}
+                  selected={selectedSeats.map((s) => s.id)}
+                  onToggle={toggleSeat}
+                />
               )}
             </div>
           </AppCard>

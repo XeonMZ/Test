@@ -184,3 +184,22 @@ h6 {
     transition-duration: 0.01ms !important;
   }
 }
+
+@layer utilities {
+  /**
+   * Hide the scrollbar without disabling scrolling.
+   *
+   * Used by horizontal card rails (e.g. the customer dashboard
+   * recommendation rail), where a visible bar sits awkwardly under the cards
+   * on desktop. Touch scrolling, wheel scrolling and keyboard scrolling all
+   * still work — only the bar itself is hidden.
+   */
+  .scrollbar-none {
+    -ms-overflow-style: none; /* old Edge / IE */
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none; /* Chrome, Safari */
+  }
+}

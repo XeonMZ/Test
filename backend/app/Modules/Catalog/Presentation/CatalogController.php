@@ -43,7 +43,15 @@ final class CatalogController extends Controller
     {
         $keys = [
             'company_name', 'whatsapp_number', 'cs_whatsapp', 'jastip_whatsapp',
-            'social_instagram', 'social_tiktok', 'social_facebook', 'welcome_notice',
+            'social_instagram', 'social_tiktok', 'social_facebook', 'social_youtube', 'social_x',
+            'welcome_notice',
+            // Lets the package booking form decide whether to offer DP, and
+            // show the correct percentage, without a second request.
+            'package_dp_enabled', 'package_dp_percent',
+            // Pop-up only. The welcome NOTIFICATION keys are intentionally not
+            // exposed here — they are consumed server-side at registration and
+            // have no business being readable by anonymous visitors.
+            'welcome_popup_enabled', 'welcome_popup_title', 'welcome_popup_body', 'welcome_popup_image',
             'company_address', 'company_email', 'company_phone', 'company_hours', 'company_maps_embed',
         ];
         $rows = \App\Models\SystemSetting::query()->whereIn('key', $keys)->pluck('value', 'key');

@@ -305,7 +305,7 @@ export const adminApi = {
   routeDelete: async (id: number) => (await http.delete(`/admin/manage/routes/${id}`)).data,
 
   schedulesList: (params: { page?: number; status?: string; route_id?: number }) =>
-    adminList<{ id: number; uuid: string; departure_at: string; arrival_at: string; base_fare: string | number; status: string; bookings_count?: number; route?: { code?: string; origin?: string; destination?: string }; vehicle?: { code?: string; brand?: string }; driver?: { user?: { name?: string } }; trips?: Array<{ id: number; status: string }> }>('/admin/manage/schedules', params),
+    adminList<{ id: number; uuid: string; departure_at: string; arrival_at: string; base_fare: string | number; status: string; bookings_count?: number; route?: { code?: string; origin?: string; destination?: string }; vehicle?: { code?: string; brand?: string }; driver?: { user?: { name?: string } }; latest_trip?: { id: number; status: string } | null }>('/admin/manage/schedules', params),
   scheduleCreate: async (payload: { route_id: number; vehicle_id: number; driver_id: number; departure_at: string; arrival_at: string; base_fare: number }) => (await http.post('/admin/manage/schedules', payload)).data,
   scheduleUpdate: async (id: number, payload: Record<string, unknown>) => (await http.patch(`/admin/manage/schedules/${id}`, payload)).data,
   scheduleCancel: async (id: number) => (await http.post(`/admin/manage/schedules/${id}/cancel`)).data,
@@ -404,6 +404,7 @@ export const adminApi = {
   // Tour package booking (admin & owner)
   packageBookings: async (params?: Record<string, string>) => (await http.get<{ data: Paginated<PackageBookingRow> }>('/admin/package-bookings', { params })).data.data,
   packageBookingVerify: async (id: number) => (await http.post<{ data: PackageBookingRow }>(`/admin/package-bookings/${id}/verify`)).data.data,
+  packageBookingVerifySettlement: async (id: number) => (await http.post<{ data: PackageBookingRow }>(`/admin/package-bookings/${id}/verify-settlement`)).data.data,
   packageBookingReject: async (id: number, admin_note: string) => (await http.post<{ data: PackageBookingRow }>(`/admin/package-bookings/${id}/reject`, { admin_note })).data.data,
   packageBookingTransition: async (id: number, action: 'complete' | 'cancel') => (await http.post<{ data: PackageBookingRow }>(`/admin/package-bookings/${id}/${action}`)).data.data,
   // Email template editor (admin & owner)
@@ -617,6 +618,10 @@ export type PackageBookingRow = {
   id: number; uuid: string; code: string; travel_date: string; pax: number; amount: number;
   status: 'waiting_payment' | 'waiting_verification' | 'paid' | 'completed' | 'cancelled';
   contact_phone?: string | null; notes?: string | null; admin_note?: string | null; paid_at?: string | null;
+  // DP fields (tour packages only); all computed server-side.
+  payment_type?: 'full' | 'dp'; dp_percent?: number | null; dp_amount?: number | null;
+  paid_amount?: number; outstanding_amount?: number; is_settled?: boolean; is_dp?: boolean;
+  settlement_claimed_at?: string | null; settled_at?: string | null;
   tour_package?: { id: number; name: string; destination?: string | null } | null;
   customer?: { id: number; user?: { id: number; name: string; email: string } | null } | null;
 };

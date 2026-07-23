@@ -11,7 +11,9 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
+use App\Support\Mail\MailBranding;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -43,5 +45,36 @@ final class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $request): Limit => Limit::perMinute(5)->by(strtolower((string) $request->input('email')).'|'.$request->ip()));
         RateLimiter::for('register', fn (Request $request): Limit => Limit::perMinute(3)->by($request->ip()));
         RateLimiter::for('password-reset', fn (Request $request): Limit => Limit::perMinute(3)->by(strtolower((string) $request->input('email')).'|'.$request->ip()));
+
+        // Asking for a passcode costs an email; guessing one costs nothing.
+        // Both are throttled per address AND per IP so neither a single
+        // mailbox nor a single host can be used as an amplifier.
+        // The authenticated routes (resend / confirm verification) carry no
+        // email in the body — falling back to the empty string would put every
+        // user in one shared bucket, so one active user could lock out all of
+        // them. Key off the session identity first.
+        $otpSubject = static function (Request $request): string {
+            $user = $request->user();
+            if ($user !== null) {
+                return 'u'.$user->getAuthIdentifier();
+            }
+
+            return 'e'.strtolower(trim((string) $request->input('email')));
+        };
+
+        RateLimiter::for('otp-request', fn (Request $request): array => [
+            Limit::perMinute(2)->by('otp-req:'.$otpSubject($request)),
+            Limit::perHour(8)->by('otp-req-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('otp-verify', fn (Request $request): array => [
+            Limit::perMinute(6)->by('otp-vrf:'.$otpSubject($request)),
+            Limit::perHour(40)->by('otp-vrf-ip:'.$request->ip()),
+        ]);
+
+        // Every email template needs the same validated brand assets; a
+        // composer keeps that out of each individual Mailable.
+        View::composer('emails.*', function ($view): void {
+            $view->with(MailBranding::forView());
+        });
     }
 }

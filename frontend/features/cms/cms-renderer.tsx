@@ -2,6 +2,7 @@
 
 import { ArrowRight, BarChart3, Car, HelpCircle, MapPin, Package, Phone, Quote, Sparkles, Tag, type LucideIcon } from 'lucide-react';
 import { cmsImageUrl, type CmsBlock } from './blocks';
+import { HeroSlider } from '@/shared/ui/swipe-rail';
 
 const ICONS: Record<string, LucideIcon> = { Car, Package, MapPin, Sparkles, Tag, BarChart3, Quote, HelpCircle, Phone };
 
@@ -175,5 +176,38 @@ export function BlockView({ block }: { block: CmsBlock }) {
 /** Renders an ordered list of active blocks — the whole page. */
 export function CmsRenderer({ blocks }: { blocks: CmsBlock[] }) {
   const visible = blocks.filter((b) => b.is_active).sort((a, b) => a.sort_order - b.sort_order);
-  return <>{visible.map((b) => <BlockView key={b.id} block={b} />)}</>;
+
+  // hero_slider is stored as one row per slide so the generic CMS form can
+  // edit, reorder and schedule each slide individually. They are collapsed
+  // into a single carousel here, rendered at the position of the first slide
+  // so the editor's sort_order still decides where the banner sits relative
+  // to the other blocks. The static `hero` block is untouched — both can
+  // appear on the same page.
+  const slides = visible.filter((b) => b.type === 'hero_slider');
+  const firstSlideId = slides[0]?.id;
+
+  return (
+    <>
+      {visible.map((b) => {
+        if (b.type !== 'hero_slider') return <BlockView key={b.id} block={b} />;
+        if (b.id !== firstSlideId) return null;
+        return (
+          <section key={b.id} className="px-4 pt-6">
+            <div className="mx-auto max-w-6xl">
+              <HeroSlider
+                slides={slides.map((s) => ({
+                  id: Number(s.id),
+                  title: s.title ?? null,
+                  body: s.body ?? null,
+                  image_path: s.image_path ? cmsImageUrl(s.image_path) : null,
+                  link: s.link ?? null,
+                  cta_label: m(s, 'cta_label') || null,
+                }))}
+              />
+            </div>
+          </section>
+        );
+      })}
+    </>
+  );
 }

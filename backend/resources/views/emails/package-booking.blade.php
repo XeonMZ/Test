@@ -8,7 +8,19 @@
 <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#0f172a;text-align:center;">{{ $tpl['heading'] }}</h1>
 <p style="margin:0 0 18px;font-size:14px;color:#475569;line-height:1.7;text-align:center;">{{ $tpl['intro'] }}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;border-radius:14px;">
-  @foreach (['Kode Booking' => $code, 'Paket' => $packageName, 'Destinasi' => $destination, 'Tanggal' => $travelDate, 'Jumlah Pax' => $pax, 'Total' => $amount] as $label => $value)
+  @php
+    // DP rows appear only for DP bookings; a full-payment email is unchanged.
+    $rows = ['Kode Booking' => $code, 'Paket' => $packageName, 'Destinasi' => $destination, 'Tanggal' => $travelDate, 'Jumlah Pax' => $pax, 'Total' => $amount];
+    if (($isDp ?? false)) {
+        $rows['Skema Pembayaran'] = 'DP '.($dpPercent ? $dpPercent.'%' : '');
+        $rows['Sudah Dibayar'] = $paidAmount;
+        if (! ($isSettled ?? false)) {
+            $rows['Sisa Pembayaran'] = $outstanding;
+        }
+        $rows['Status'] = ($isSettled ?? false) ? 'LUNAS' : 'BELUM LUNAS';
+    }
+  @endphp
+  @foreach ($rows as $label => $value)
     @if ($value !== null && $value !== '')
       <tr><td style="padding:9px 16px;font-size:12px;color:#64748b;">{{ $label }}</td><td style="padding:9px 16px;font-size:13px;font-weight:700;color:#0f172a;text-align:right;">{{ $value }}</td></tr>
     @endif

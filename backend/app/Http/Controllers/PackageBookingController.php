@@ -31,6 +31,10 @@ final class PackageBookingController extends Controller
 
     // ---------------------------- Customer ----------------------------
 
+    /**
+     * Create a booking. `payment_type` decides whether the customer pays the
+     * whole amount now or only a down payment.
+     */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -39,10 +43,12 @@ final class PackageBookingController extends Controller
             'pax' => 'required|integer|min:1|max:100',
             'contact_phone' => 'sometimes|nullable|string|max:30',
             'notes' => 'sometimes|nullable|string|max:1000',
+            'payment_type' => 'sometimes|string|in:full,dp',
         ]);
         $customer = Customer::where('user_id', $request->user()->id)->firstOrFail();
+        $wantsDp = ($data['payment_type'] ?? 'full') === 'dp';
 
-        $booking = DB::transaction(function () use ($data, $customer): PackageBooking {
+        $booking = DB::transaction(function () use ($data, $customer, $wantsDp): PackageBooking {
             $package = TourPackage::whereKey($data['tour_package_id'])->where('status', 'active')->lockForUpdate()->firstOrFail();
             if ((int) $package->capacity > 0) {
                 $taken = (int) PackageBooking::where('tour_package_id', $package->id)
@@ -51,12 +57,37 @@ final class PackageBookingController extends Controller
                     ->sum('pax');
                 abort_if($taken + (int) $data['pax'] > (int) $package->capacity, 422, 'Kapasitas paket pada tanggal tersebut tidak mencukupi (tersisa '.max(0, $package->capacity - $taken).' pax).');
             }
+
+            $amount = round((float) $package->price * (int) $data['pax'], 2);
+
+            // The percentage is read once and frozen onto the row. Reading it
+            // again at settlement time would let an admin edit the setting and
+            // silently re-price a booking a customer has already committed to.
+            $dpPercent = null;
+            $dpAmount = null;
+            if ($wantsDp) {
+                abort_unless($this->dpEnabled(), 422, 'Pembayaran DP sedang tidak tersedia untuk paket wisata.');
+                $dpPercent = $this->dpPercent();
+                $dpAmount = round($amount * $dpPercent / 100, 2);
+                // A DP that rounds to the whole amount is not a DP; fall back
+                // to a normal full payment rather than creating a booking with
+                // a zero remainder that still shows a settlement button.
+                if ($dpAmount >= $amount) {
+                    $dpPercent = null;
+                    $dpAmount = null;
+                }
+            }
+
             return PackageBooking::create([
                 'tour_package_id' => $package->id,
                 'customer_id' => $customer->id,
                 'travel_date' => $data['travel_date'],
                 'pax' => (int) $data['pax'],
-                'amount' => round((float) $package->price * (int) $data['pax'], 2),
+                'amount' => $amount,
+                'payment_type' => $dpAmount === null ? 'full' : 'dp',
+                'dp_percent' => $dpPercent,
+                'dp_amount' => $dpAmount,
+                'paid_amount' => 0,
                 'contact_phone' => $data['contact_phone'] ?? $customer->phone,
                 'notes' => $data['notes'] ?? null,
                 'status' => 'waiting_payment',
@@ -64,11 +95,22 @@ final class PackageBookingController extends Controller
         });
 
         $instructions = $this->instructions();
-        $this->notify($request->user()->id, 'Booking paket diterima', "Booking {$booking->code} tercatat. Selesaikan pembayaran lalu tekan Sudah Transfer.");
+        $due = $this->idr($booking->amountDueNow());
+        $this->notify(
+            $request->user()->id,
+            'Booking paket diterima',
+            $booking->is_dp
+                ? "Booking {$booking->code} tercatat. Bayar DP {$due} lalu tekan Sudah Transfer. Sisa pelunasan dapat dibayar setelah DP terverifikasi."
+                : "Booking {$booking->code} tercatat. Selesaikan pembayaran {$due} lalu tekan Sudah Transfer.",
+        );
         $this->email($booking, 'received', $instructions);
-        $this->audit($request, 'package_booking.created', ['id' => $booking->id, 'code' => $booking->code, 'pax' => $booking->pax]);
+        $this->audit($request, 'package_booking.created', ['id' => $booking->id, 'code' => $booking->code, 'pax' => $booking->pax, 'payment_type' => $booking->payment_type, 'due_now' => $booking->amountDueNow()]);
 
-        return response()->json(['data' => ['booking' => $booking->load('tourPackage:id,name,destination'), 'payment_instructions' => $instructions]], 201);
+        return response()->json(['data' => [
+            'booking' => $booking->load('tourPackage:id,name,destination'),
+            'payment_instructions' => $instructions,
+            'amount_due_now' => $booking->amountDueNow(),
+        ]], 201);
     }
 
     public function myIndex(Request $request): JsonResponse
@@ -98,8 +140,42 @@ final class PackageBookingController extends Controller
         $method = (string) $request->validate(['method' => 'required|string|in:snap,qris,bank_transfer'])['method'];
         $booking = $this->ownedBooking($request, $uuid);
         $result = $payments->charge($booking, $method);
-        $this->audit($request, 'package_booking.payment_created', ['id' => $booking->id, 'code' => $booking->code, 'method' => $method]);
+        $this->audit($request, 'package_booking.payment_created', ['id' => $booking->id, 'code' => $booking->code, 'method' => $method, 'kind' => 'first']);
         return response()->json(['data' => $result]);
+    }
+
+    /** Pay the remaining balance of a DP booking through the gateway. */
+    public function settle(Request $request, string $uuid, \App\Http\Controllers\Support\PackagePaymentService $payments): JsonResponse
+    {
+        $method = (string) $request->validate(['method' => 'required|string|in:snap,qris,bank_transfer'])['method'];
+        $booking = $this->ownedBooking($request, $uuid);
+        $result = $payments->settle($booking, $method);
+        $this->audit($request, 'package_booking.settlement_created', ['id' => $booking->id, 'code' => $booking->code, 'method' => $method, 'kind' => 'settlement']);
+        return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Customer declares the REMAINDER was transferred manually.
+     *
+     * This cannot reuse confirmTransfer(): the booking is already `paid` (the
+     * DP secured it), so there is no status left to move. The claim is
+     * recorded on its own timestamp and awaits verifySettlement().
+     */
+    public function confirmSettlement(Request $request, string $uuid): JsonResponse
+    {
+        $booking = $this->ownedBooking($request, $uuid);
+        abort_unless($booking->awaitingSettlement(), 422, 'Booking tidak memiliki sisa pembayaran yang menunggu konfirmasi.');
+
+        // Conditional update keeps concurrent taps from double-claiming.
+        $updated = PackageBooking::whereKey($booking->id)
+            ->where('status', 'paid')
+            ->whereNull('settled_at')
+            ->whereNull('settlement_claimed_at')
+            ->update(['settlement_claimed_at' => now()]);
+        abort_if($updated === 0, 422, 'Konfirmasi pelunasan sudah tercatat sebelumnya.');
+
+        $this->audit($request, 'package_booking.settlement_claimed', ['id' => $booking->id, 'code' => $booking->code]);
+        return response()->json(['data' => ['message' => 'Terima kasih! Tim kami akan memverifikasi pelunasan Anda.']]);
     }
 
     public function customerCancel(Request $request, string $uuid): JsonResponse
@@ -128,14 +204,23 @@ final class PackageBookingController extends Controller
     }
 
     /** Verify the transfer → paid + confirmation email + notification. */
-    public function verify(Request $request, string $id): JsonResponse
+    public function verify(Request $request, string $id, \App\Http\Controllers\Support\PackagePaymentService $payments): JsonResponse
     {
         $booking = PackageBooking::with('customer')->findOrFail($id);
-        $updated = PackageBooking::whereKey($booking->id)->whereIn('status', ['waiting_verification', 'waiting_payment'])->update(['status' => 'paid', 'paid_at' => now()]);
-        abort_if($updated === 0, 422, 'Booking tidak dalam status yang dapat diverifikasi.');
+
+        // Delegated so the manual and gateway paths credit the same figure
+        // through the same locked, idempotent code.
+        abort_unless($payments->applyFirstPayment((int) $booking->id), 422, 'Booking tidak dalam status yang dapat diverifikasi.');
+
         $booking->refresh();
         if ($booking->customer?->user_id) {
-            $this->notify($booking->customer->user_id, 'Pembayaran paket terverifikasi', "Booking {$booking->code} terkonfirmasi. Sampai jumpa di tanggal keberangkatan!");
+            $this->notify(
+                $booking->customer->user_id,
+                'Pembayaran paket terverifikasi',
+                $booking->is_settled
+                    ? "Booking {$booking->code} terkonfirmasi dan LUNAS. Sampai jumpa di tanggal keberangkatan!"
+                    : "DP booking {$booking->code} terkonfirmasi. Sisa pembayaran {$this->idr($booking->outstanding_amount)} dapat dilunasi kapan saja sebelum keberangkatan.",
+            );
         }
         $this->email($booking, 'paid');
         $this->audit($request, 'package_booking.verified', ['id' => $booking->id, 'code' => $booking->code]);
@@ -156,10 +241,42 @@ final class PackageBookingController extends Controller
         return response()->json(['data' => $booking->refresh()]);
     }
 
+    /**
+     * Admin confirms the remaining balance was received (transfer or cash).
+     *
+     * Separate from verify() because it credits a different instalment; using
+     * one endpoint for both would make it impossible to tell from the audit
+     * trail which payment an admin actually confirmed.
+     */
+    public function verifySettlement(Request $request, string $id, \App\Http\Controllers\Support\PackagePaymentService $payments): JsonResponse
+    {
+        $booking = PackageBooking::with('customer')->findOrFail($id);
+        abort_unless($payments->applySettlement((int) $booking->id), 422, 'Booking tidak memiliki sisa pembayaran yang bisa dilunasi.');
+
+        $booking->refresh();
+        if ($booking->customer?->user_id) {
+            $this->notify($booking->customer->user_id, 'Pelunasan terverifikasi', "Booking {$booking->code} kini LUNAS. Terima kasih!");
+        }
+        $this->email($booking, 'paid');
+        $this->audit($request, 'package_booking.settlement_verified', ['id' => $booking->id, 'code' => $booking->code, 'amount' => $booking->amount]);
+
+        return response()->json(['data' => $booking]);
+    }
+
     public function adminTransition(Request $request, string $id, string $action): JsonResponse
     {
         abort_unless(in_array($action, ['complete', 'cancel'], true), 404);
         $booking = PackageBooking::with('customer')->findOrFail($id);
+
+        // A DP booking must not be closed while money is still owed —
+        // `completed` is terminal and also unlocks rating eligibility, so
+        // letting it through would quietly write off the outstanding balance.
+        // Admins who took the remainder in cash record it via
+        // verifySettlement() first; nothing is lost, it just has to be stated.
+        if ($action === 'complete' && ! $booking->is_settled) {
+            abort(422, 'Booking belum lunas (sisa '.$this->idr($booking->outstanding_amount).'). Verifikasi pelunasan terlebih dahulu sebelum menyelesaikan booking.');
+        }
+
         $map = ['complete' => [['paid'], 'completed'], 'cancel' => [PackageBooking::ACTIVE_STATUSES, 'cancelled']];
         [$from, $to] = $map[$action];
         $updated = PackageBooking::whereKey($booking->id)->whereIn('status', $from)->update(['status' => $to]);
@@ -177,6 +294,36 @@ final class PackageBookingController extends Controller
     {
         $customer = Customer::where('user_id', $request->user()->id)->firstOrFail();
         return PackageBooking::where('uuid', $uuid)->where('customer_id', $customer->id)->firstOrFail();
+    }
+
+    /** DP is a tour-package feature; travel bookings keep their own setting. */
+    private function dpEnabled(): bool
+    {
+        return filter_var($this->setting('package_dp_enabled'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+    }
+
+    /** Clamped to 1..99 so a bad setting can never produce a zero or full DP. */
+    private function dpPercent(): int
+    {
+        $value = (int) ($this->setting('package_dp_percent') ?? 30);
+
+        return max(1, min(99, $value === 0 ? 30 : $value));
+    }
+
+    /** Settings are cast to array, so a scalar may arrive wrapped as ['value' => x]. */
+    private function setting(string $key): string|int|bool|null
+    {
+        $value = SystemSetting::query()->where('key', $key)->value('value');
+        if (is_array($value)) {
+            $value = $value['value'] ?? null;
+        }
+
+        return is_scalar($value) ? $value : null;
+    }
+
+    private function idr(float $amount): string
+    {
+        return 'Rp'.number_format($amount, 0, ',', '.');
     }
 
     private function instructions(): string

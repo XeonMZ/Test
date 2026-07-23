@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '@/services/http';
 import { adminApi } from '@/services/portal';
-import { extractApiError, formatDateTime, formatIDR, resendVerificationEmail, type ApiEnvelope } from '@/services/stms';
+import { extractApiError, formatDateTime, formatIDR, type ApiEnvelope } from '@/services/stms';
+import { EmailVerificationPanel } from '@/features/auth/email-verification-panel';
 import { useAuth } from '@/shared/providers/auth-provider';
 import { useToast } from '@/shared/providers/toast-provider';
 import { AppCard, Badge, EmptyState, PageHeader, SectionHeader, Skeleton, StatsCard } from '@/shared/ui/components';
@@ -72,12 +73,6 @@ export function ProfilePage() {
     onError: (error) => toast(extractApiError(error, 'Gagal mengubah password. Periksa password lama Anda.'), 'error'),
   });
 
-  const verifyMutation = useMutation({
-    mutationFn: resendVerificationEmail,
-    onSuccess: (res) => toast(res.message, res.verified ? 'success' : 'info'),
-    onError: (error) => toast(extractApiError(error, 'Gagal mengirim email verifikasi.'), 'error'),
-  });
-
   const resetMutation = useMutation({
     mutationFn: () => http.post('/forgot-password', { email: profile?.email }),
     onSuccess: () => toast('Tautan reset password telah dikirim ke email Anda.', 'success'),
@@ -132,9 +127,12 @@ export function ProfilePage() {
               <Badge tone={(profile as Record<string, unknown>).email_verified_at ? 'success' : 'warning'}>{(profile as Record<string, unknown>).email_verified_at ? 'email terverifikasi' : 'belum verifikasi'}</Badge>
             </div>
             {!(profile as Record<string, unknown>).email_verified_at ? (
-              <button onClick={() => verifyMutation.mutate()} disabled={verifyMutation.isPending} className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-amber-500 px-3 text-xs font-extrabold text-white hover:bg-amber-600 disabled:opacity-60">
-                {verifyMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Mail size={12} />} Kirim email verifikasi
-              </button>
+              <EmailVerificationPanel
+                className="mt-4"
+                email={profile.email}
+                invalidateKeys={[['profile']]}
+                toast={toast}
+              />
             ) : null}
             <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-bold text-slate-400"><ShieldCheck size={13} /> Terdaftar {formatDateTime(profile.created_at)}</p>
             {profile.customer?.membership ? (

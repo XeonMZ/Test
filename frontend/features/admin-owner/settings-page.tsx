@@ -19,15 +19,40 @@ const FIELDS: { key: string; label: string; hint?: string; public: boolean; area
   { key: 'social_instagram', label: 'URL Instagram', public: true },
   { key: 'social_tiktok', label: 'URL TikTok', public: true },
   { key: 'social_facebook', label: 'URL Facebook', public: true },
-  { key: 'welcome_notice', label: 'Notifikasi Awal (banner)', hint: 'Pesan sambutan yang tampil untuk pengguna', public: true, area: true },
+  { key: 'social_youtube', label: 'URL YouTube', public: true },
+  { key: 'social_x', label: 'URL X (Twitter)', hint: 'Kosongkan bila tidak dipakai — ikon otomatis disembunyikan di footer', public: true },
+
+  // --- DP Paket Wisata (khusus paket; booking travel punya setelan sendiri) ---
+  { key: 'package_dp_enabled', label: 'DP Paket Wisata: Aktif', hint: 'Isi 1 untuk aktif, 0 untuk nonaktif. Hanya berlaku untuk paket wisata, bukan booking travel.', public: true },
+  { key: 'package_dp_percent', label: 'DP Paket Wisata: Persen', hint: 'Contoh: 30 untuk DP 30%. Dibatasi 1–99. Persentase dikunci pada booking saat dibuat.', public: true },
+
+  // --- Notifikasi sambutan (kartu inbox, dibuat saat registrasi) ---
+  // The pop-up has its own richer panel below (toggle + image upload); these
+  // three keys are the inbox notification only, and are deliberately private:
+  // anonymous visitors have no reason to read them.
+  { key: 'welcome_notification_enabled', label: 'Notifikasi Sambutan: Aktif', hint: 'Isi 1 untuk aktif, 0 untuk nonaktif. Default aktif bila dikosongkan.', public: false },
+  { key: 'welcome_notification_title', label: 'Notifikasi Sambutan: Judul', hint: 'Default: Selamat datang di STMS', public: false },
+  { key: 'welcome_notification_body', label: 'Notifikasi Sambutan: Isi', hint: 'Default: Akun customer Anda berhasil dibuat.', public: false, area: true },
+
+  { key: 'welcome_notice', label: 'Banner Pengumuman (lama)', hint: 'Dipakai sebagai cadangan isi pop-up bila kolom di atas kosong', public: true, area: true },
 ];
 
 // Welcome-notification popup: title, body, image, and enable switch.
+/**
+ * Keys for the welcome POP-UP — the modal on the public site, shown once per
+ * browser session. It gets the richer panel (toggle + image upload) because it
+ * is the only one of the two that renders an image.
+ *
+ * The welcome NOTIFICATION (the inbox card created at registration) is a
+ * separate feature with separate keys, edited as plain fields above. Keeping
+ * them apart means turning off the marketing modal never stops new customers
+ * from being told their account was created.
+ */
 const WELCOME_KEYS = {
-  enabled: 'welcome_notification_enabled',
-  title: 'welcome_notification_title',
-  body: 'welcome_notification_body',
-  image: 'welcome_notification_image',
+  enabled: 'welcome_popup_enabled',
+  title: 'welcome_popup_title',
+  body: 'welcome_popup_body',
+  image: 'welcome_popup_image',
 } as const;
 
 export function SettingsPage() {
@@ -84,14 +109,14 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Pengaturan" description="Atur kontak WhatsApp, media sosial, notifikasi awal, dan welcome notification. Perubahan langsung tampil di footer & tombol CS." />
+      <PageHeader title="Pengaturan" description="Atur kontak WhatsApp, media sosial, pop-up sambutan, dan notifikasi sambutan. Perubahan langsung tampil di footer & tombol CS." />
 
       {query.isLoading ? (
         <Skeleton className="h-96" />
       ) : (
         <>
           <AppCard>
-            <SectionHeader title="Kontak & Media Sosial" description="Nomor WhatsApp cukup diketik, sistem otomatis membuat tautan wa.me." />
+            <SectionHeader title="Kontak & Media Sosial" description="Nomor WhatsApp cukup diketik, sistem otomatis membuat tautan wa.me. URL sosial media yang diisi otomatis muncul sebagai ikon di footer; yang dikosongkan disembunyikan. Pop-up Sambutan dan Notifikasi Sambutan adalah dua hal berbeda — pop-up adalah modal di situs publik yang muncul sekali tiap sesi browser, sedangkan notifikasi adalah kartu inbox yang dibuat sekali saat akun didaftarkan." />
             <div className="mt-5 space-y-4">
               {FIELDS.map((field) => (
                 <div key={field.key} className="grid gap-2 sm:grid-cols-[220px_1fr_auto] sm:items-start">
@@ -114,12 +139,12 @@ export function SettingsPage() {
 
           <AppCard>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <SectionHeader title="Welcome Notification" description="Popup sambutan untuk pengguna: judul, isi, dan gambar. Aktif/nonaktifkan kapan saja." />
+              <SectionHeader title="Pop-up Sambutan" description="Modal sambutan di situs publik: judul, isi, dan gambar. Muncul sekali tiap sesi browser — ditutup lalu buka browser lagi, ia muncul kembali. Ini terpisah dari Notifikasi Sambutan (kartu inbox saat registrasi) di panel atas." />
               <button
                 type="button"
                 role="switch"
                 aria-checked={welcomeEnabled}
-                aria-label="Aktifkan welcome notification"
+                aria-label="Aktifkan pop-up sambutan"
                 onClick={toggleWelcome}
                 disabled={saveMutation.isPending}
                 className="text-primary transition disabled:opacity-50"
@@ -150,11 +175,11 @@ export function SettingsPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   {values[WELCOME_KEYS.image] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={values[WELCOME_KEYS.image]} alt="Gambar welcome notification" className="h-24 w-40 rounded-md object-cover ring-1 ring-slate-200 dark:ring-slate-800" />
+                    <img src={values[WELCOME_KEYS.image]} alt="Gambar pop-up sambutan" className="h-24 w-40 rounded-md object-cover ring-1 ring-slate-200 dark:ring-slate-800" />
                   ) : (
                     <span className="grid h-24 w-40 place-items-center rounded-md bg-slate-100 text-xs font-bold text-slate-400 dark:bg-slate-900">Belum ada gambar</span>
                   )}
-                  <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadWelcomeImage(f); }} aria-label="Unggah gambar welcome notification" />
+                  <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadWelcomeImage(f); }} aria-label="Unggah gambar pop-up sambutan" />
                   <button type="button" onClick={() => fileInput.current?.click()} disabled={uploading} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 px-4 text-sm font-semibold uppercase tracking-button text-slate-700 transition hover:border-primary hover:text-primary disabled:opacity-60 dark:border-slate-800 dark:text-slate-200">
                     {uploading ? <Loader2 size={15} className="animate-spin" /> : <ImagePlus size={15} />} {values[WELCOME_KEYS.image] ? 'Ganti gambar' : 'Unggah gambar'}
                   </button>

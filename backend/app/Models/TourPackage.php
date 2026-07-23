@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,11 @@ final class TourPackage extends Model
 
     protected $guarded = ['id'];
     protected $casts = ['facilities' => 'array', 'itinerary' => 'array', 'gallery' => 'array', 'is_featured' => 'bool', 'is_recommended' => 'bool', 'is_best_seller' => 'bool', 'is_promo' => 'bool', 'price' => 'float'];
+
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(PackageRating::class);
+    }
 
     protected static function booted(): void
     {

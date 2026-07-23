@@ -16,6 +16,7 @@ import { getMenuForRole, getRoleFromPath } from '../navigation';
 import type { AppRole } from '../navigation/types';
 import { AppCard, FloatingButton, ReconnectState } from '../components';
 import { SiteFooter } from './site-footer';
+import { WelcomePopup } from '@/features/cms/welcome-popup';
 import { useTheme } from '../theme/theme-provider';
 
 export function GuestLayout({ children }: { children: ReactNode }) { return <AppShell forcedRole="guest">{children}</AppShell>; }
@@ -199,6 +200,8 @@ export function AppShell({ children, forcedRole }: { children: ReactNode; forced
       <NotificationPanel open={panelOpen} role={role} />
       <FloatingButton aria-label={roleQuickAction[role].label} title={roleQuickAction[role].label} onClick={() => router.push(roleQuickAction[role].href)} />
       <SiteFooter />
+      {/* Renders only when enabled in Settings and not yet seen this session. */}
+      <WelcomePopup />
       <div id="loading-overlay" className="pointer-events-none fixed inset-0 z-[70] hidden place-items-center bg-canvas/70 text-xs font-semibold uppercase tracking-button text-graphite">Memuat</div>
     </div>
   );

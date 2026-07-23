@@ -39,12 +39,18 @@ final class AuthController extends Controller
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
-        return response()->json(['success' => true, 'message' => $this->password->forgot($request->validated()), 'data' => []]);
+        // IP + user agent are recorded on the passcode and echoed in the
+        // email so the recipient can spot a request they did not make.
+        $message = $this->password->forgot($request->validated(), $request->ip(), $request->userAgent());
+
+        return response()->json(['success' => true, 'message' => $message, 'data' => []]);
     }
 
     public function resetPassword(ResetPasswordRequest $request): JsonResponse
     {
-        return response()->json(['success' => true, 'message' => $this->password->reset($request->validated()), 'data' => []]);
+        $message = $this->password->reset($request->validated(), $request->ip());
+
+        return response()->json(['success' => true, 'message' => $message, 'data' => []]);
     }
 
     public function profile(Request $request): JsonResponse

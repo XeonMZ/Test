@@ -4,7 +4,9 @@ import { ArrowRight, CalendarClock, PlusCircle, RefreshCw, Ticket as TicketIcon,
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { extractApiError, fetchCustomerBookings, formatDateTime, formatIDR, resendVerificationEmail, type Booking } from '@/services/stms';
+import { extractApiError, fetchCustomerBookings, formatDateTime, formatIDR, type Booking } from '@/services/stms';
+import { EmailVerificationPanel } from '@/features/auth/email-verification-panel';
+import { RecommendationRail } from '@/features/customer-portal/recommendation-rail';
 import { useAuth } from '@/shared/providers/auth-provider';
 import { useToast } from '@/shared/providers/toast-provider';
 import { ActionButton, AppCard, Badge, EmptyState, PageHeader, SectionHeader, Skeleton, StatsCard } from '@/shared/ui/components';
@@ -27,33 +29,19 @@ function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger
 function VerifyEmailBanner() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [sending, setSending] = useState(false);
   const [hidden, setHidden] = useState(false);
   const unverified = Boolean(user) && (user as Record<string, unknown>).email_verified_at == null && 'email_verified_at' in (user as Record<string, unknown>);
   if (!unverified || hidden) return null;
 
-  async function resend() {
-    setSending(true);
-    try {
-      const res = await resendVerificationEmail();
-      toast(res.message, res.verified ? 'success' : 'info');
-      if (res.verified) setHidden(true);
-    } catch (error) {
-      toast(extractApiError(error, 'Gagal mengirim ulang email verifikasi.'), 'error');
-    } finally {
-      setSending(false);
-    }
-  }
-
+  // Same panel as the profile page: request a code, type it, done — the
+  // banner removes itself the moment the address is confirmed.
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/40">
-      <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
-        ✉️ Email Anda belum terverifikasi. Cek kotak masuk <span className="font-mono">{String(user?.email ?? '')}</span> untuk tautan verifikasi.
-      </p>
-      <button onClick={() => void resend()} disabled={sending} className="min-h-10 rounded-xl bg-amber-600 px-4 text-xs font-extrabold text-white transition hover:bg-amber-700 disabled:opacity-60">
-        {sending ? 'Mengirim…' : 'Kirim Ulang Email'}
-      </button>
-    </div>
+    <EmailVerificationPanel
+      email={String(user?.email ?? '')}
+      invalidateKeys={[['profile'], ['customer-bookings']]}
+      toast={toast}
+      onVerified={() => setHidden(true)}
+    />
   );
 }
 
@@ -124,6 +112,7 @@ export function CustomerDashboard() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-6">
         <AppCard>
           <div className="flex items-center justify-between gap-3">
             <SectionHeader title="Booking terbaru" description="Lima pemesanan terakhirmu." />
@@ -145,6 +134,10 @@ export function CustomerDashboard() {
             )}
           </div>
         </AppCard>
+
+        {/* Renders nothing when the CMS has no published recommendation cards. */}
+        <RecommendationRail />
+        </div>
 
         <div className="space-y-4">
           <QuickLink href="/booking" icon={<PlusCircle size={18} />} title="Pesan perjalanan" description="Cari jadwal & pilih kursi" />

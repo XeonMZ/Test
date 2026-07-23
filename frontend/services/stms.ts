@@ -35,7 +35,37 @@ export type CatalogSchedule = {
   seats_available: number;
 };
 
-export type CatalogSeat = { id: number; seat_number: string; class: string; available: boolean };
+export type SeatCellType = 'seat' | 'aisle' | 'driver' | 'door' | 'empty' | 'luggage' | 'toilet' | 'stairs';
+
+/** One square of the grid an operator drew in the vehicle-layout editor. */
+export type LayoutCell = {
+  /** Only real, bookable seats carry an id; furniture is display-only. */
+  seat_id: number | null;
+  seat_number: string | null;
+  row_index: number;
+  column_index: number;
+  cell_type: SeatCellType;
+  label?: string | null;
+  available: boolean;
+};
+
+export type SeatLayout = {
+  has_layout: boolean;
+  rows: number;
+  columns: number;
+  cells: LayoutCell[];
+};
+
+export type CatalogSeat = {
+  id: number;
+  seat_number: string;
+  class: string;
+  available: boolean;
+  /** Grid coordinates from the operator's vehicle layout. */
+  row_index?: number;
+  column_index?: number;
+  cell_type?: SeatCellType;
+};
 
 export type SeatMapResponse = {
   schedule: {
@@ -48,6 +78,12 @@ export type SeatMapResponse = {
     vehicle: { code: string; brand: string; layout: string | null } | null;
   };
   seats: CatalogSeat[];
+  /**
+   * The full grid the operator drew — seats plus furniture (driver, door,
+   * aisle, toilet). `has_layout: false` for legacy vehicles whose seats have
+   * no coordinates; the client falls back to an auto 2-2 grid then.
+   */
+  layout?: SeatLayout;
   seats_available: number;
   capacity: number;
 };
@@ -124,11 +160,25 @@ export async function validatePromo(payload: { code: string; amount: number }): 
 /** Resend the email-verification message (auth required, rate-limited server-side). */
 export type PackageBookingSummary = {
   id: number; uuid: string; code: string; travel_date: string; pax: number; amount: number; status: string;
+  /** DP fields — tour packages only. Computed server-side; never recompute here. */
+  payment_type?: 'full' | 'dp';
+  dp_percent?: number | null;
+  dp_amount?: number | null;
+  paid_amount?: number;
+  outstanding_amount?: number;
+  is_settled?: boolean;
+  is_dp?: boolean;
+  settlement_claimed_at?: string | null;
+  settled_at?: string | null;
   tour_package?: { id: number; name: string; destination?: string | null; cover_path?: string | null; duration_days?: number } | null;
 };
 
-export async function createPackageBooking(payload: { tour_package_id: number; travel_date: string; pax: number; contact_phone?: string; notes?: string }): Promise<{ booking: PackageBookingSummary; payment_instructions: string }> {
-  const res = await http.post<ApiEnvelope<{ booking: PackageBookingSummary; payment_instructions: string }>>('/package-bookings', payload);
+export async function createPackageBooking(payload: {
+  tour_package_id: number; travel_date: string; pax: number; contact_phone?: string; notes?: string;
+  /** Omit or 'full' to pay everything now; 'dp' pays the down payment first. */
+  payment_type?: 'full' | 'dp';
+}): Promise<{ booking: PackageBookingSummary; payment_instructions: string; amount_due_now: number }> {
+  const res = await http.post<ApiEnvelope<{ booking: PackageBookingSummary; payment_instructions: string; amount_due_now: number }>>('/package-bookings', payload);
   return res.data.data;
 }
 export async function fetchMyPackageBookings(): Promise<PackageBookingSummary[]> {
@@ -146,10 +196,111 @@ export async function cancelPackageBooking(uuid: string): Promise<void> {
   await http.post(`/package-bookings/${uuid}/cancel`);
 }
 
-export async function resendVerificationEmail(): Promise<{ message: string; verified: boolean }> {
-  const res = await http.post<ApiEnvelope<{ verified: boolean }>>('/email/verification-notification');
+/** Pay the remaining balance of a DP booking through the gateway. */
+export async function settlePackageBooking(uuid: string, method: 'snap' | 'qris' | 'bank_transfer'): Promise<{ uuid: string; method: string; reference: string | null; expires_at: string | null; payload: Record<string, unknown>; amount: number }> {
+  const res = await http.post<ApiEnvelope<{ payment: { uuid: string; method: string; reference: string | null; expires_at: string | null; payload: Record<string, unknown>; amount: number } }>>(`/package-bookings/${uuid}/settle`, { method });
+  return res.data.data.payment;
+}
+
+/** Declare that the remaining balance was transferred manually. */
+export async function confirmPackageSettlement(uuid: string): Promise<void> {
+  await http.post(`/package-bookings/${uuid}/confirm-settlement`);
+}
+
+/** A card in the customer dashboard recommendation rail, authored in the CMS. */
+export type Recommendation = {
+  id: number;
+  title: string | null;
+  body: string | null;
+  image_path: string | null;
+  /** Already sanitised server-side: http(s) or site-relative, else null. */
+  link: string | null;
+  badge: string | null;
+};
+
+export async function fetchRecommendations(): Promise<Recommendation[]> {
+  const res = await http.get<ApiEnvelope<Recommendation[]>>('/catalog/recommendations');
+  return res.data.data ?? [];
+}
+
+/** One slide of the CMS-authored hero carousel. */
+export type HeroSlideRow = {
+  id: number;
+  title: string | null;
+  body: string | null;
+  image_path: string | null;
+  link: string | null;
+  cta_label: string | null;
+};
+
+export async function fetchHeroSlides(): Promise<HeroSlideRow[]> {
+  const res = await http.get<ApiEnvelope<HeroSlideRow[]>>('/catalog/hero-slides');
+  return res.data.data ?? [];
+}
+
+export type PackageReview = {
+  id: number;
+  stars: number;
+  comment: string | null;
+  name: string;
+  created_at: string | null;
+};
+
+export type PackageRatingSummary = {
+  average: number;
+  total: number;
+  distribution: Record<string, number>;
+  reviews: PackageReview[];
+};
+
+export async function fetchPackageRatings(slug: string): Promise<PackageRatingSummary> {
+  const res = await http.get<ApiEnvelope<PackageRatingSummary>>(`/catalog/tour-packages/${slug}/ratings`);
+  return res.data.data;
+}
+
+/** Bookings this customer has travelled on and not yet rated. */
+export type RatableBooking = {
+  id: number;
+  uuid: string;
+  code: string;
+  tour_package_id: number;
+  travel_date: string;
+  status: string;
+  package?: { id: number; name: string; slug: string; cover_path: string | null } | null;
+};
+
+export async function fetchRatableBookings(): Promise<RatableBooking[]> {
+  const res = await http.get<{ data: RatableBooking[] }>('/package-ratings/eligibility');
+  return res.data.data ?? [];
+}
+
+export async function submitPackageRating(payload: {
+  package_booking_id: number;
+  stars: number;
+  comment?: string;
+}): Promise<{ message: string }> {
+  const res = await http.post<ApiEnvelope<unknown>>('/package-ratings', payload);
+  return { message: res.data.message };
+}
+
+/** Mints a fresh 6-digit verification passcode and emails it. */
+export async function sendVerificationCode(): Promise<{ message: string; verified: boolean; expiresInMinutes: number }> {
+  const res = await http.post<ApiEnvelope<{ verified: boolean; expires_in_minutes?: number }>>('/email/verification-notification');
+  return {
+    message: res.data.message,
+    verified: res.data.data.verified,
+    expiresInMinutes: res.data.data.expires_in_minutes ?? 10,
+  };
+}
+
+/** Redeems the passcode. The backend answers one generic error on any failure. */
+export async function confirmVerificationCode(code: string): Promise<{ message: string; verified: boolean }> {
+  const res = await http.post<ApiEnvelope<{ verified: boolean }>>('/email/verify-otp', { code });
   return { message: res.data.message, verified: res.data.data.verified };
 }
+
+/** @deprecated Verification moved to passcodes — use sendVerificationCode(). */
+export const resendVerificationEmail = sendVerificationCode;
 
 export async function createBooking(payload: {
   schedule_id: number;
