@@ -1,0 +1,186 @@
+/* ------------------------------------------------------------------
+ * SJT Tour & Travel — global stylesheet
+ * Implements DESIGN.md: white canvas, ink type, one blue signal,
+ * single-family Manrope voice, sharp buttons / soft cards.
+ * ------------------------------------------------------------------ */
+
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* DESIGN.md surface + ink tokens, mirrored as CSS vars for non-Tailwind use */
+  --font-sjt: 'Manrope', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --canvas: #ffffff;
+  --cloud: #f7f7f7;
+  --fog: #e8e8e8;
+  --steel: #c2c2c2;
+  --ink: #1a1a1a;
+  --ink-deep: #000000;
+  --ink-soft: #292929;
+  --charcoal: #3d3d3d;
+  --graphite: #636363;
+  --primary: #024ad8;
+  --primary-bright: #296ef9;
+  --primary-deep: #0e3191;
+  --primary-soft: #c9e0fc;
+
+  --background: var(--canvas);
+  --foreground: var(--ink);
+
+  /* Legacy vars kept so any stray reference still resolves */
+  --font-inter: var(--font-sjt);
+  --font-poppins: var(--font-sjt);
+}
+
+.dark {
+  /* DESIGN.md has one dark voice: the ink slab. Dark mode reuses it. */
+  --background: var(--ink-deep);
+  --foreground: var(--canvas);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sjt);
+  font-weight: 400;
+  line-height: 1.38;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* DESIGN.md § Typography — display sizes run at weight 500, line-height 1.0 */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-sjt);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+::selection {
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.dark :focus-visible {
+  outline-color: var(--primary-bright);
+}
+
+/* ------------------------------------------------------------------
+ * Component layer — the DESIGN.md primitives every screen composes from.
+ * ------------------------------------------------------------------ */
+@layer components {
+  /* § Buttons — 44px tall, 4px radius, uppercase 0.7px tracking */
+  .sjt-btn {
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-md px-6 text-sm font-semibold uppercase tracking-button transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .sjt-btn-primary {
+    @apply sjt-btn bg-primary text-white hover:bg-primary-deep active:bg-primary-deep disabled:bg-steel disabled:text-white;
+  }
+  .sjt-btn-ink {
+    @apply sjt-btn bg-ink text-white hover:bg-ink-soft active:bg-black;
+  }
+  .sjt-btn-outline {
+    @apply sjt-btn border border-primary bg-transparent text-primary hover:bg-primary hover:text-white;
+  }
+  .sjt-btn-outline-ink {
+    @apply sjt-btn border border-ink bg-transparent text-ink hover:bg-ink hover:text-white dark:border-white dark:text-white dark:hover:bg-white dark:hover:text-ink;
+  }
+  .sjt-btn-on-ink {
+    @apply sjt-btn bg-white text-ink hover:bg-cloud;
+  }
+
+  /* § Inputs — 44px, 4px radius, steel hairline, ink border on focus (no halo) */
+  .sjt-input {
+    @apply h-11 w-full rounded-md border border-steel bg-canvas px-4 text-base text-ink outline-none transition-colors placeholder:text-graphite focus:border-ink dark:border-ink-soft dark:bg-ink dark:text-white dark:focus:border-white;
+  }
+
+  /* § Cards — 16px radius, Soft Lift, white paper on any band */
+  .sjt-card {
+    @apply rounded-2xl bg-canvas p-6 shadow-soft dark:bg-ink;
+  }
+  .sjt-card-flat {
+    @apply rounded-2xl border border-hairline bg-canvas p-6 dark:border-ink-soft dark:bg-ink;
+  }
+
+  /* § Section rhythm — 80px desktop, 48px mobile */
+  .sjt-section {
+    @apply px-4 py-section-sm sm:py-section;
+  }
+  .sjt-container {
+    @apply mx-auto w-full max-w-7xl;
+  }
+
+  /* § Typography — the eyebrow that opens most bands */
+  .sjt-eyebrow {
+    @apply text-xs font-semibold uppercase tracking-button text-primary;
+  }
+}
+
+/* ------------------------------------------------------------------
+ * § Decorative Depth — the blue chevron pair.
+ * A literal echo of the wordmark's parallel slashes: 0-radius blue
+ * parallelograms, no shadow. Brand artifact, not generic flourish.
+ * ------------------------------------------------------------------ */
+.sjt-chevron {
+  background-color: var(--primary);
+  clip-path: polygon(38% 0, 100% 0, 62% 100%, 0 100%);
+}
+
+.sjt-chevron-pair {
+  display: flex;
+  gap: 8px;
+}
+
+/* Fine-print regions tighten per DESIGN.md § Whitespace Philosophy */
+.sjt-fineprint {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--graphite);
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
