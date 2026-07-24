@@ -88,14 +88,51 @@ export type SeatMapResponse = {
   capacity: number;
 };
 
+/**
+ * Whitelisted public settings from GET /catalog/settings.
+ *
+ * MUST stay in step with the `$keys` array in
+ * CatalogController::publicSettings(). Adding a key on the backend without
+ * adding it here does not fail at runtime — it fails the production type
+ * check, which is exactly how the welcome pop-up broke the build.
+ *
+ * Every value is typed `string | null` to match the eight keys that were here
+ * originally and the call sites built around them. The underlying column is
+ * JSON, so a toggle saved as a real boolean or a percentage saved as a number
+ * can arrive as a non-string; consumers therefore coerce defensively
+ * (`String(...)`, `Number(...)`, or helpers taking `unknown`) rather than
+ * trusting this annotation blindly.
+ */
 export type PublicSettings = {
+  // Company / contact
   company_name?: string | null;
+  company_address?: string | null;
+  company_email?: string | null;
+  company_phone?: string | null;
+  company_hours?: string | null;
+  company_maps_embed?: string | null;
   whatsapp_number?: string | null;
   cs_whatsapp?: string | null;
   jastip_whatsapp?: string | null;
+
+  // Social links rendered in the footer
   social_instagram?: string | null;
   social_tiktok?: string | null;
   social_facebook?: string | null;
+  social_youtube?: string | null;
+  social_x?: string | null;
+
+  // Down payment — tour packages only
+  package_dp_enabled?: string | null;
+  package_dp_percent?: string | null;
+
+  // Welcome pop-up (the inbox notification keys are NOT public)
+  welcome_popup_enabled?: string | null;
+  welcome_popup_title?: string | null;
+  welcome_popup_body?: string | null;
+  welcome_popup_image?: string | null;
+
+  /** Legacy announcement banner; still used as the pop-up body fallback. */
   welcome_notice?: string | null;
 };
 
