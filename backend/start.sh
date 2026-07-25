@@ -32,9 +32,15 @@ echo "==> SJT starting..."
 # ==========================
 if [ "${SERVICE_TYPE:-web}" = "worker" ]; then
   echo "==> Worker mode detected."
-  exec php artisan queue:work --sleep=3 --tries=3 --timeout=90
-fi
 
+  exec php artisan queue:work \
+    --queue=default \
+    --sleep=1 \
+    --tries=1 \
+    --timeout=90 \
+    --backoff=5 \
+    --verbose
+fi
 echo "==> Web mode detected."
 
 # ==========================
